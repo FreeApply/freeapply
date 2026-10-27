@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeApply Dashboard</title>
+<style>
+:root{
+  --bg:#06050c; --bg2:#0c0918; --panel:rgba(22,15,42,.72); --panel2:rgba(30,20,58,.6);
+  --line:rgba(168,85,247,.22); --line2:rgba(168,85,247,.42);
+  --purple:#a855f7; --violet:#7c3aed; --green:#34f5a0; --green2:#16c784; --amber:#fbbf24; --red:#ff5d7a; --cyan:#5eead4;
+  --text:#ece8ff; --muted:#9a91bd; --dim:#6b6390;
+  --mono:ui-monospace,"JetBrains Mono","Cascadia Code",Consolas,monospace;
+  --sans:"Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--sans)}
+body{min-height:100vh;
+  background:
+    radial-gradient(900px 500px at 8% -10%,rgba(124,58,237,.28),transparent 60%),
+    radial-gradient(800px 500px at 100% 0%,rgba(52,245,160,.12),transparent 60%),
+    linear-gradient(rgba(168,85,247,.05) 1px,transparent 1px) 0 0/100% 32px,
+    linear-gradient(90deg,rgba(168,85,247,.05) 1px,transparent 1px) 0 0/32px 100%,
+    var(--bg);}
+a{color:var(--green);text-decoration:none} a:hover{text-decoration:underline}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 20px 60px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--violet),var(--green2));box-shadow:0 0 22px rgba(168,85,247,.55)}
+.logo h1{margin:0;font-size:20px;letter-spacing:.24em;font-weight:800;
+  background:linear-gradient(90deg,#d8b4fe,var(--green));-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo small{display:block;font:11px var(--mono);color:var(--muted);letter-spacing:.12em}
+.spacer{flex:1}
+.pill{font:12px var(--mono);padding:6px 10px;border-radius:999px;border:1px solid var(--line2);background:var(--panel2);color:var(--muted)}
+.pill.ok{color:var(--green);border-color:rgba(52,245,160,.45)} .pill.warn{color:var(--amber);border-color:rgba(251,191,36,.45)}
+.btn{border:1px solid var(--line2);background:linear-gradient(180deg,rgba(124,58,237,.35),rgba(124,58,237,.15));
+  padding:8px 14px;border-radius:10px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--purple);box-shadow:0 0 16px rgba(168,85,247,.35)}
+.btn.green{background:linear-gradient(180deg,rgba(52,245,160,.3),rgba(22,199,132,.14));border-color:rgba(52,245,160,.5)}
+.btn.green:hover{box-shadow:0 0 16px rgba(52,245,160,.35)}
+nav.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(168,85,247,.4) transparent}
+nav.tabs::-webkit-scrollbar{height:4px} nav.tabs::-webkit-scrollbar-thumb{background:rgba(168,85,247,.4);border-radius:4px}
+nav.tabs button{background:none;border:0;padding:10px 16px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;
+  font:600 13px var(--sans);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+nav.tabs button.on{color:var(--text);border-bottom-color:var(--green);text-shadow:0 0 12px rgba(52,245,160,.5)}
+nav.tabs .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:6px;box-shadow:0 0 8px var(--amber)}
+section.view{display:none} section.view.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 30px rgba(0,0,0,.35)}
+.panel h3{margin:0 0 12px;font:600 12px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{position:relative;overflow:hidden}
+.kpi .v{font:700 30px/1.1 var(--mono);margin-top:4px}
+.kpi .l{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.kpi .s{font-size:12px;color:var(--dim);margin-top:4px}
+.kpi::after{content:"";position:absolute;inset:auto -20% -60% auto;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,var(--glow,rgba(168,85,247,.35)),transparent 70%)}
+.kpi.g{--glow:rgba(52,245,160,.3)} .kpi.g .v{color:var(--green);text-shadow:0 0 14px rgba(52,245,160,.45)}
+.kpi.p .v{color:#d8b4fe;text-shadow:0 0 14px rgba(168,85,247,.55)}
+.kpi.a{--glow:rgba(251,191,36,.25)} .kpi.a .v{color:var(--amber)}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:980px){.grid2,.grid3{grid-template-columns:1fr}}
+.grid2>*,.grid3>*,.kpis>*,.settings>*{min-width:0}
+svg text{fill:var(--muted);font:10px var(--mono)}
+.bars rect{transition:.2s} .bars rect:hover{filter:brightness(1.4)}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(168,85,247,.14)}
+.list li:last-child{border-bottom:0}
+.list .t{flex:1;min-width:0}
+.list .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.list .t span{color:var(--muted);font-size:12px}
+.hbar{height:6px;border-radius:6px;background:rgba(168,85,247,.15);overflow:hidden;margin-top:4px}
+.hbar i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--green))}
+.funnel .row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.funnel .row .lab{width:96px;font:12px var(--mono);color:var(--muted)}
+.funnel .row .track{flex:1;height:22px;border-radius:6px;background:rgba(168,85,247,.08);overflow:hidden}
+.funnel .row .fill{height:100%;background:linear-gradient(90deg,rgba(124,58,237,.9),rgba(52,245,160,.85));
+  display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font:600 12px var(--mono);color:#06050c;min-width:28px}
+.badge{display:inline-block;font:600 11px var(--mono);padding:3px 8px;border-radius:999px;border:1px solid;white-space:nowrap}
+.b-applied{color:var(--green);border-color:rgba(52,245,160,.45);background:rgba(52,245,160,.08)}
+.b-found,.b-ready{color:var(--cyan);border-color:rgba(94,234,212,.4)}
+.b-skipped{color:var(--dim);border-color:rgba(107,99,144,.5)}
+.b-needs_info,.b-needs_account,.b-blocked{color:var(--amber);border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.06)}
+.b-failed,.b-rejected{color:var(--red);border-color:rgba(255,93,122,.45)}
+.b-interview,.b-offer{color:#06050c;background:var(--green);border-color:var(--green);box-shadow:0 0 12px rgba(52,245,160,.5)}
+.b-replied,.b-assessment{color:#d8b4fe;border-color:rgba(168,85,247,.6);background:rgba(168,85,247,.12)}
+.b-acknowledged,.b-withdrawn{color:var(--muted);border-color:rgba(154,145,189,.4)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select,.field input,.field select,.field textarea{
+  background:rgba(8,6,18,.75);border:1px solid var(--line2);border-radius:10px;padding:8px 11px;outline:none;min-width:0}
+.toolbar input:focus,.toolbar select:focus,.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(52,245,160,.15)}
+.toolbar .search{flex:1;min-width:200px}
+.count{font:12px var(--mono);color:var(--muted)}
+.tablewrap{max-height:calc(100vh - 250px);min-height:300px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:rgba(10,7,22,.65)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{position:sticky;top:0;z-index:1;background:#140d2a;text-align:left;padding:10px;font:600 11px var(--mono);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line2);cursor:pointer;white-space:nowrap;user-select:none}
+thead th:hover{color:var(--text)} thead th.sorted{color:var(--green)}
+tbody td{padding:9px 10px;border-bottom:1px solid rgba(168,85,247,.09);vertical-align:top}
+tbody tr:hover{background:rgba(168,85,247,.07)}
+td.num{font-family:var(--mono);text-align:right} td.mono{font-family:var(--mono);color:var(--muted);white-space:nowrap}
+td .sub{color:var(--dim);font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td select{background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:12px}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.settings{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (max-width:980px){.settings{grid-template-columns:1fr}}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field label .req{color:var(--amber)}
+.field.missing input,.field.missing select,.field.missing .drop{border-color:var(--amber);box-shadow:0 0 0 3px rgba(251,191,36,.12)}
+.field .hint{font-size:12px;color:var(--dim)}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.checks label{display:flex;gap:6px;align-items:center;font:13px var(--sans);text-transform:none;letter-spacing:0;color:var(--text);
+  padding:6px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.checks input{accent-color:var(--green)}
+.drop{border:1px dashed var(--line2);border-radius:12px;padding:18px;text-align:center;cursor:pointer;background:rgba(8,6,18,.5)}
+.drop:hover,.drop.over{border-color:var(--green);background:rgba(52,245,160,.06)}
+.welcome{border:1px solid rgba(52,245,160,.45);background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(52,245,160,.1));
+  border-radius:var(--r);padding:16px 18px;margin-bottom:14px;display:none}
+.welcome h2{margin:0 0 6px;font-size:18px} .welcome p{margin:0;color:var(--muted)}
+.savebar{position:sticky;bottom:12px;display:flex;justify-content:flex-end;gap:12px;align-items:center;margin-top:14px;
+  padding:10px 12px;border:1px solid var(--line2);border-radius:var(--r);background:rgba(14,9,30,.94);backdrop-filter:blur(10px);
+  box-shadow:0 -6px 30px rgba(0,0,0,.5)}
+.savebar .count{flex:1;min-width:0}
+.savebar .btn{white-space:nowrap}
+.toast{position:fixed;right:18px;bottom:18px;padding:10px 14px;border-radius:10px;background:#140d2a;border:1px solid var(--green);
+  color:var(--text);box-shadow:0 0 22px rgba(52,245,160,.3);opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none;z-index:9}
+.toast.on{opacity:1;transform:none} .toast.err{border-color:var(--red);box-shadow:0 0 22px rgba(255,93,122,.3)}
+.scan{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px)}
+nav.tabs .sep{width:1px;background:var(--line);margin:8px 6px}
+nav.tabs button.legal{color:var(--dim);font-size:12px}
+.doc{max-width:860px;line-height:1.65}
+.doc h1{font-size:24px;margin:0 0 4px;background:linear-gradient(90deg,#d8b4fe,var(--green));-webkit-background-clip:text;background-clip:text;color:transparent}
+.doc h2{font-size:15px;margin:22px 0 6px;color:#d8b4fe;letter-spacing:.02em}
+.doc .meta{font:12px var(--mono);color:var(--muted);margin:0 0 14px}
+.doc p,.doc li{color:#d6d0f0} .doc ul{padding-left:20px}
+.doc table{margin:10px 0;font-size:13px} .doc th,.doc td{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
+.doc th{background:#140d2a;color:var(--muted);font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.doc code{font-family:var(--mono);color:var(--green)}
+/* lock screen */
+#gate{position:fixed;inset:0;z-index:20;display:none;background:rgba(4,3,10,.86);backdrop-filter:blur(10px);overflow:auto;padding:18px}
+#gate.on{display:block}
+.gatebox{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+@media (max-width:900px){.gatebox{grid-template-columns:1fr}}
+.gatebox .panel{background:rgba(18,12,36,.96)}
+.gdocs .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.seg button{border:1px solid var(--line2);background:transparent;border-radius:999px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:12px}
+.seg button.on{color:#06050c;background:var(--green);border-color:var(--green)}
+.gdoc{max-height:62vh;overflow:auto;padding-right:8px}
+.choice{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.choice b{display:block;margin-bottom:3px} .choice p{margin:0 0 8px;color:var(--muted);font-size:12.5px}
+.yn{display:flex;gap:8px} .yn label{flex:1;text-align:center;border:1px solid var(--line2);border-radius:10px;padding:7px;cursor:pointer;font-weight:600}
+.yn input{display:none} .yn input:checked+span{color:var(--green)} .yn label:has(input:checked){border-color:var(--green);background:rgba(52,245,160,.1)}
+.agree{display:flex;gap:8px;align-items:flex-start;margin:8px 0;font-size:13px} .agree input{margin-top:3px;accent-color:var(--green)}
+/* Notice at collection: plain, readable text next to the agreement (not fine print). */
+.notice{margin:12px 0;font-size:13px;line-height:1.5;color:var(--text)} .notice a{color:var(--purple)}
+/* Job sites: one row per site; the user signs in on the site itself, never in FreeApply. */
+.sites{display:grid;gap:6px}
+.site{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.site .agree{margin:2px 0;flex:1;min-width:220px}
+.site .signin{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.site .signin .agree{flex:none;min-width:0}
+.site .warn{color:var(--amber);font:12px var(--mono);flex-basis:100%}
+.btn.sm{padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text)}
+.sponsor{margin-top:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.sponsor .tag{font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:6px;padding:2px 6px}
+.sponsor .body{flex:1;min-width:220px} .sponsor .body b{display:block} .sponsor .body p{margin:2px 0 0;color:var(--muted);font-size:13px}
+/* Setup wizard: after the Terms on a fresh install, before the dashboard. */
+#wiz{position:fixed;inset:0;z-index:19;display:none;background:rgba(4,3,10,.86);backdrop-filter:blur(10px);overflow:auto;padding:18px}
+#wiz.on{display:block}
+.wizbox{max-width:760px;margin:4vh auto 0;background:rgba(18,12,36,.96)}
+.wizhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap} .wizhead h2{margin:0;font-size:20px}
+.wizbar{height:4px;border-radius:4px;background:var(--line);margin:12px 0 16px;overflow:hidden}
+.wizbar i{display:block;height:100%;background:var(--green);transition:width .2s}
+.wstep>h3{margin-bottom:4px} .wstep>p{margin:0 0 12px;color:var(--muted);font-size:13px}
+/* Collapsed rows (Advanced settings, Data sharing, the wizard's advanced options): one line until opened. */
+details.fold>summary{cursor:pointer;list-style:none;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary h3{margin:0}
+details.fold>summary::after{content:attr(data-closed);margin-left:auto;font:12px var(--mono);color:var(--purple)}
+details.fold[open]>summary::after{content:attr(data-open)}
+details.fold[open]>summary{margin-bottom:12px}
+details.fold .panel{background:rgba(8,6,18,.35);backdrop-filter:none}
+details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:10px;padding:10px;font:11.5px/1.5 var(--mono);color:#cfc7f2;white-space:pre-wrap;word-break:break-word}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin:8px 0} .kv span:nth-child(odd){color:var(--muted);font-family:var(--mono)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn.red{border-color:rgba(255,93,122,.5);background:linear-gradient(180deg,rgba(255,93,122,.25),rgba(255,93,122,.08))}
+.icard{margin-bottom:12px}
+.icard .hd{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+.icard .hd .t{flex:1;min-width:200px} .icard .hd b{font-size:15px} .icard .hd .count{display:block}
+.qrow{border-top:1px dashed rgba(168,85,247,.18);padding:10px 0}
+.qrow .ql{font-weight:600;margin-bottom:6px} .qrow .ql .req{color:var(--amber)}
+.qrow input[type=text],.qrow input[type=number],.qrow input[type=date],.qrow select,.qrow textarea{width:100%;background:rgba(8,6,18,.75);border:1px solid var(--line2);border-radius:10px;padding:8px 11px;outline:none}
+.qrow textarea{min-height:70px;resize:vertical}
+.qrow .opts{display:flex;flex-wrap:wrap;gap:8px}
+.qrow .opts label{display:flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.qrow .opts input{accent-color:var(--green)}
+.qrow .keep{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:6px}
+.qrow.done .ql::after{content:" ✓ answered";color:var(--green);font:600 11px var(--mono)}
+.list li a.issue{color:inherit} .list li a.issue:hover .badge{box-shadow:0 0 10px currentColor}
+</style>
+</head>
+<body>
+<div class="scan"></div>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06050c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l7-7 4 4 7-7"/><path d="M14 2h7v7"/><path d="M3 22h18"/></svg></div>
+      <div><h1>FREEAPPLY</h1><small id="sub">MISSION CONTROL</small></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="setupPill">…</span>
+    <span class="pill" id="mailPill">…</span>
+    <button class="btn" id="refresh" title="Refresh">↻ Refresh</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="overview" class="on">Overview</button>
+    <button data-tab="applications">Applications</button>
+    <button data-tab="replies">Replies</button>
+    <button data-tab="issues">Issues<span class="dot" id="issDot" hidden></span></button>
+    <button data-tab="settings">Settings<span class="dot" id="setDot" hidden></span></button>
+    <span class="sep"></span>
+    <button data-tab="terms" class="legal">Terms</button>
+    <button data-tab="privacy" class="legal">Privacy</button>
+    <button data-tab="disclosures" class="legal">Disclosures</button>
+    <button data-tab="recruiters" class="legal">Recruiter Terms</button>
+  </nav>
+  <section class="view" id="v-terms"><div class="panel doc" data-doc="terms"></div></section>
+  <section class="view" id="v-privacy"><div class="panel doc" data-doc="privacy"></div></section>
+  <section class="view" id="v-disclosures"><div class="panel doc" data-doc="disclosures"></div></section>
+  <section class="view" id="v-recruiters"><div class="panel doc" data-doc="recruiters"></div></section>
+
+  <!-- OVERVIEW -->
+  <section class="view on" id="v-overview">
+    <div class="welcome" id="welcome">
+      <h2>Welcome to FreeApply. Let's set you up.</h2>
+      <p>Add your resume and what you're looking for in <a href="#settings" data-go="settings">Settings</a>. The agent won't apply anywhere until it's done.</p>
+    </div>
+    <div class="welcome" id="siteWarn" style="border-color:rgba(251,191,36,.55)"></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="panel"><h3>Applications · last 30 days</h3><div id="chart"></div></div>
+      <div class="panel"><h3>Pipeline</h3><div class="funnel" id="funnel"></div></div>
+    </div>
+    <div class="grid3">
+      <div class="panel"><h3>Top applied jobs</h3><ul class="list" id="topJobs"></ul></div>
+      <div class="panel"><h3>Top companies</h3><ul class="list" id="topCos"></ul></div>
+      <div class="panel"><h3>Status breakdown</h3><ul class="list" id="statusList"></ul></div>
+    </div>
+    <!-- Sponsored card: chosen on this computer from a signed, cached pack. No ad scripts ever run on this page. -->
+    <aside class="panel sponsor" id="sponsor" aria-label="Sponsored" hidden></aside>
+  </section>
+
+  <!-- APPLICATIONS -->
+  <section class="view" id="v-applications">
+    <div class="toolbar">
+      <input class="search" id="q" placeholder="Search title, company, location…">
+      <select id="fStatus"><option value="">All statuses</option></select>
+      <select id="fOutcome"><option value="">All outcomes</option><option value="__none">No response</option></select>
+      <select id="fMethod"><option value="">All methods</option></select>
+      <span class="count" id="count"></span>
+      <button class="btn" id="csv">⇩ CSV</button>
+    </div>
+    <div class="tablewrap"><table id="jobsTable">
+      <thead><tr>
+        <th data-k="submitted_at">Date</th><th data-k="company">Company</th><th data-k="title">Role</th>
+        <th data-k="location">Location</th><th data-k="pay_min">Pay</th><th data-k="fit_score">Fit</th>
+        <th data-k="status">Status</th><th data-k="outcome">Outcome</th><th data-k="method">Method</th><th data-k="reply_count">Mail</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <!-- REPLIES -->
+  <section class="view" id="v-replies">
+    <div class="toolbar"><span class="count" id="rcount"></span><div class="spacer"></div>
+      <span class="count">Checked by the agent every <b id="ivl">4</b> h through your Gmail connector</span></div>
+    <div class="tablewrap"><table id="repTable">
+      <thead><tr><th data-k="received_at">Received</th><th data-k="company">Company</th><th data-k="kind">Type</th>
+        <th data-k="subject">Subject</th><th data-k="sender">From</th><th data-k="mail_action">Gmail</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <!-- ISSUES -->
+  <section class="view" id="v-issues">
+    <div class="seg" id="issSeg" style="margin-bottom:12px">
+      <button type="button" data-i="needs_info" class="on">Needs info <span id="cNI"></span></button>
+      <button type="button" data-i="needs_account">Needs account <span id="cNA"></span></button>
+      <button type="button" data-i="blocked">Blocked <span id="cBL"></span></button>
+    </div>
+    <div id="iss-needs_info" class="isslist"></div>
+    <div id="iss-needs_account" class="isslist" hidden>
+      <div class="panel" style="margin-bottom:12px"><h3>Account sign-up helper</h3>
+        <p class="count" style="margin:0 0 8px">Drag this button to your browser's bookmarks bar once. On an employer's sign-up page, click it to fill your name, email, phone and location. Let your browser or password manager create and save the password; FreeApply never stores passwords.</p>
+        <a class="btn green" id="bookmarklet" href="#" title="Drag to your bookmarks bar">⚡ FreeApply Autofill</a>
+        <span class="count" style="margin-left:8px">Refresh it after you change your profile.</span>
+      </div>
+    </div>
+    <div id="iss-blocked" class="isslist" hidden></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="v-settings">
+    <div class="welcome" id="welcome2"><h2>First-run setup</h2><p>Fields marked <b style="color:var(--amber)">●</b> are required before the agent applies anywhere. Works for any job or field.</p></div>
+    <form id="sform" autocomplete="off">
+    <div class="settings">
+      <div class="panel"><h3>Resume</h3>
+        <div class="field full" data-key="resume.primary">
+          <div class="drop" id="drop">
+            <div style="font-size:22px">⇪</div>
+            <div><b>Drop your resume here</b> or click to choose</div>
+            <div class="hint">PDF, DOCX, TXT or MD · stored only on this computer</div>
+            <input type="file" id="resumeFile" accept=".pdf,.docx,.doc,.txt,.md,.rtf" hidden>
+          </div>
+          <div class="hint" id="resumeInfo"></div>
+        </div>
+      </div>
+      <div class="panel"><h3>About you</h3><div class="fields">
+        <div class="field" data-key="profile.full_name"><label>Full name</label><input name="profile.full_name"></div>
+        <div class="field" data-key="profile.email"><label>Email</label><input name="profile.email" type="email"></div>
+        <div class="field"><label>Phone</label><input name="profile.phone"></div>
+        <div class="field"><label>City</label><input name="profile.city"></div>
+        <div class="field"><label>State / region</label><input name="profile.region"></div>
+        <div class="field"><label>Country</label><input name="profile.country"></div>
+        <div class="field full"><label>LinkedIn URL</label><input name="profile.linkedin_url"></div>
+      </div></div>
+      <div class="panel"><h3>What you're looking for</h3><div class="fields">
+        <div class="field full" data-key="targets.desired_roles"><label>Desired roles</label><input name="targets.desired_roles" data-list placeholder="e.g. Registered Nurse, Data Analyst, Electrician"><span class="hint">Comma separated</span></div>
+        <div class="field full" data-key="targets.locations"><label>Locations</label><input name="targets.locations" data-list placeholder="e.g. Denver CO, Remote US"></div>
+        <div class="field full"><label>Work modes</label><div class="checks" data-checks="targets.work_modes">
+          <label><input type="checkbox" value="onsite">On-site</label><label><input type="checkbox" value="hybrid">Hybrid</label><label><input type="checkbox" value="remote">Remote</label></div></div>
+        <div class="field" data-key="targets.min_pay"><label>Minimum pay</label><input name="targets.min_pay" type="number" min="0" step="any" placeholder="0 = no floor"></div>
+        <div class="field"><label>Pay period</label><select name="targets.pay_period"><option value="year">per year</option><option value="hour">per hour</option><option value="month">per month</option></select></div>
+      </div></div>
+      <div class="panel"><h3>Eligibility</h3><div class="fields">
+        <div class="field" data-key="eligibility.work_authorized"><label>Authorized to work here</label><select name="eligibility.work_authorized" data-bool><option value="">Choose…</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="field"><label>Needs visa sponsorship</label><select name="eligibility.needs_sponsorship" data-bool><option value="">Choose…</option><option value="false">No</option><option value="true">Yes</option></select></div>
+      </div></div>
+      <div class="panel"><h3>Job sites</h3>
+        <p class="count" style="margin:0 0 10px">Where the agent may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses. FreeApply never asks for or stores passwords.</p>
+        <div class="sites" data-sites></div>
+        <div class="fields" style="margin-top:10px">
+          <div class="field full"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
+        </div>
+      </div>
+      <div class="panel"><h3>Automation</h3><div class="fields">
+        <div class="field full"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
+          <span class="hint">Runs while your AI app is open and stops on its own at the first hard stop. Budgets are under Advanced.</span>
+          <div class="kv" id="arInfo"></div>
+          <div class="btnrow"><button type="button" class="btn red sm" id="arStop" hidden>Stop the current run</button></div></div>
+        <div class="field"><label>Check Gmail for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
+        <div class="field"><label>When a reply arrives</label><select name="gmail.action">
+          <option value="star">Star it</option><option value="label">Add to a label (folder)</option>
+          <option value="star_and_label">Star and label</option><option value="none">Just track it</option></select></div>
+      </div></div>
+    </div>
+
+    <details class="panel fold" id="advanced" style="margin-top:14px">
+      <summary data-closed="Show ▾" data-open="Hide ▴"><h3>Advanced settings</h3><span class="count">Matching, pacing, auto-run budgets and Gmail details. The defaults work for most people.</span></summary>
+      <div class="settings">
+        <div class="panel"><h3>Matching</h3><div class="fields">
+          <div class="field full"><label>Fields / industries</label><input name="targets.fields" data-list placeholder="e.g. healthcare, fintech, construction"></div>
+          <div class="field full"><label>Seniority</label><div class="checks" data-checks="targets.seniority">
+            <label><input type="checkbox" value="internship">Internship</label><label><input type="checkbox" value="entry">Entry</label>
+            <label><input type="checkbox" value="mid">Mid</label><label><input type="checkbox" value="senior">Senior</label>
+            <label><input type="checkbox" value="lead">Lead / manager</label></div></div>
+          <div class="field full"><label>Must-have keywords</label><input name="targets.keywords" data-list></div>
+          <div class="field full"><label>Exclude keywords</label><input name="targets.exclude_keywords" data-list placeholder="e.g. commission only, unpaid"></div>
+          <div class="field"><label>Willing to relocate</label><select name="targets.willing_to_relocate" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
+          <div class="field"><label>Max commute (miles)</label><input name="targets.max_commute_miles" type="number" min="0"></div>
+          <div class="field"><label>Fit threshold (0–100)</label><input name="automation.fit_threshold" type="number" min="0" max="100"><span class="hint">Lower applies more widely</span></div>
+        </div></div>
+        <div class="panel"><h3>More about you</h3><div class="fields">
+          <div class="field full"><label>Portfolio / website</label><input name="profile.portfolio_url"></div>
+          <div class="field"><label>Security clearance</label><select name="eligibility.clearance"><option value="none">None</option><option value="eligible">Eligible to obtain</option><option value="active">Active</option></select></div>
+          <div class="field"><label>Earliest start</label><input name="eligibility.earliest_start"></div>
+          <div class="field"><label>Years of experience</label><input name="eligibility.years_experience" type="number" min="0" step="0.5"></div>
+        </div></div>
+        <div class="panel"><h3>Pace and auto-run budgets</h3><div class="fields">
+          <div class="field"><label>Max submits / minute</label><input name="automation.rate_per_minute" type="number" min="1" max="10"></div>
+          <div class="field"><label>Daily cap</label><input name="automation.daily_cap" type="number" min="0" placeholder="none"></div>
+          <div class="field"><label>Auto-run every (hours)</label><input name="autorun.every_hours" type="number" min="1" max="24"></div>
+          <div class="field"><label>Minutes per run (max 55)</label><input name="autorun.max_minutes" type="number" min="5" max="55"></div>
+          <div class="field"><label>Applications per run</label><input name="autorun.max_applications" type="number" min="1" placeholder="no limit"></div>
+        </div></div>
+        <div class="panel"><h3>Gmail details</h3><div class="fields">
+          <div class="field"><label>Check every (hours)</label><input name="gmail.interval_hours" type="number" min="1" max="48"></div>
+          <div class="field"><label>Label name</label><input name="gmail.label_name"></div>
+          <div class="field full"><label>Count "we received your application" emails</label><select name="gmail.count_acknowledgements" data-bool><option value="false">No, only real replies</option><option value="true">Yes</option></select>
+            <span class="hint">Uses the Gmail connector in Claude; the agent creates the schedule on first run.</span></div>
+        </div></div>
+      </div>
+    </details>
+    <div class="savebar"><span class="count" id="saveState"></span><button type="submit" class="btn green">Save settings</button></div>
+    </form>
+
+    <details class="panel fold" id="dataPanel" style="margin-top:14px">
+      <summary data-closed="Change ▾" data-open="Close ▴"><h3>Data sharing · Your privacy choices</h3><span class="count" id="shSummary"></span></summary>
+      <p class="count" style="margin:0 0 10px">Only the choices checked here are shared, and you can change any of them at any time. FreeApply works the same either way. Changes apply immediately. <a href="#privacy">Privacy Policy</a></p>
+      <div class="settings">
+        <div>
+          <label class="agree"><input type="checkbox" data-share="usage_stats"><span><b>Anonymous usage statistics</b><br><span class="count">Version, features used, counts and response rate, target roles and fields, region, pay band.</span></span></label>
+          <label class="agree"><input type="checkbox" data-share="job_market"><span><b>Job-market data</b><br><span class="count">Company, title, location, pay, job board, status and outcome for tracked jobs. No name or contact info.</span></span></label>
+          <label class="agree"><input type="checkbox" data-share="talent_pool"><span><b>Recruiter Talent Pool</b><br><span class="count">Name, email, location, links, targets and resume text, shown to recruiters who pay for access (a sale of personal information). Leaving this unchecked is your Do Not Sell or Share My Personal Information choice. <a href="#recruiters">Recruiter Terms</a></span></span></label>
+          <label class="agree" style="margin-left:26px"><input type="checkbox" data-share="talent_include_phone"><span>Include my phone number in my talent profile</span></label>
+          <label class="agree"><input type="checkbox" id="shEmailOn"><span><b>Product update emails</b><br><span class="count">Stored apart from the anonymous data above, never linked to your installation ID.</span></span></label>
+          <div class="field" style="margin-left:26px"><input id="shEmail" type="email" placeholder="email for updates"></div>
+        </div>
+        <div>
+          <div class="kv" id="shInfo"></div>
+          <div class="btnrow">
+            <button type="button" class="btn" id="shPreview">Preview shared data</button>
+            <button type="button" class="btn" id="shSync">Sync now</button>
+            <button type="button" class="btn red" id="shDelete">Delete my shared data</button>
+          </div>
+        </div>
+      </div>
+      <pre class="preview" id="shOut" hidden></pre>
+    </details>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Setup wizard: shown after the Terms on a fresh install, before the dashboard. Each step saves as you go. -->
+<div id="wiz" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+  <div class="panel wizbox">
+    <div class="wizhead"><h2 id="wizTitle">Set up your job search</h2><span class="count" id="wizStep"></span></div>
+    <div class="wizbar"><i id="wizBar"></i></div>
+    <form id="wform" autocomplete="off" onsubmit="return false">
+      <section class="wstep" data-step="profile"><h3>About you</h3><p>Used to fill in application forms. It stays on this computer.</p><div class="fields">
+        <div class="field" data-key="profile.full_name"><label>Full name</label><input name="profile.full_name"></div>
+        <div class="field" data-key="profile.email"><label>Email</label><input name="profile.email" type="email"></div>
+        <div class="field"><label>Phone</label><input name="profile.phone"></div>
+        <div class="field"><label>City</label><input name="profile.city"></div>
+        <div class="field"><label>State / region</label><input name="profile.region"></div>
+        <div class="field"><label>Country</label><input name="profile.country"></div>
+        <div class="field full"><label>LinkedIn URL</label><input name="profile.linkedin_url"></div>
+      </div></section>
+      <section class="wstep" data-step="targets"><h3>What you're looking for</h3><p>The agent applies only to jobs that match these.</p><div class="fields">
+        <div class="field full" data-key="targets.desired_roles"><label>Desired roles</label><input name="targets.desired_roles" data-list placeholder="e.g. Registered Nurse, Data Analyst, Electrician"><span class="hint">Comma separated</span></div>
+        <div class="field full" data-key="targets.locations"><label>Locations</label><input name="targets.locations" data-list placeholder="e.g. Denver CO, Remote US"></div>
+        <div class="field full"><label>Work modes</label><div class="checks" data-checks="targets.work_modes">
+          <label><input type="checkbox" value="onsite">On-site</label><label><input type="checkbox" value="hybrid">Hybrid</label><label><input type="checkbox" value="remote">Remote</label></div></div>
+        <div class="field" data-key="targets.min_pay"><label>Minimum pay</label><input name="targets.min_pay" type="number" min="0" step="any" placeholder="0 = no floor"></div>
+        <div class="field"><label>Pay period</label><select name="targets.pay_period"><option value="year">per year</option><option value="hour">per hour</option><option value="month">per month</option></select></div>
+      </div>
+        <details class="fold more"><summary data-closed="Show ▾" data-open="Hide ▴"><span class="count">More options (optional): relocation, keywords to avoid</span></summary><div class="fields">
+          <div class="field"><label>Willing to relocate</label><select name="targets.willing_to_relocate" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
+          <div class="field full"><label>Exclude keywords</label><input name="targets.exclude_keywords" data-list placeholder="e.g. commission only, unpaid"></div>
+        </div></details>
+      </section>
+      <section class="wstep" data-step="eligibility"><h3>Eligibility</h3><p>Answers forms ask about. The agent never guesses them.</p><div class="fields">
+        <div class="field" data-key="eligibility.work_authorized"><label>Authorized to work here</label><select name="eligibility.work_authorized" data-bool><option value="">Choose…</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="field"><label>Needs visa sponsorship</label><select name="eligibility.needs_sponsorship" data-bool><option value="">Choose…</option><option value="false">No</option><option value="true">Yes</option></select></div>
+      </div>
+        <details class="fold more"><summary data-closed="Show ▾" data-open="Hide ▴"><span class="count">More options (optional): clearance, start date, years of experience</span></summary><div class="fields">
+          <div class="field"><label>Security clearance</label><select name="eligibility.clearance"><option value="none">None</option><option value="eligible">Eligible to obtain</option><option value="active">Active</option></select></div>
+          <div class="field"><label>Earliest start</label><input name="eligibility.earliest_start"></div>
+          <div class="field"><label>Years of experience</label><input name="eligibility.years_experience" type="number" min="0" step="0.5"></div>
+        </div></details>
+      </section>
+      <section class="wstep" data-step="resume"><h3>Your resume</h3><p>The agent claims only what your resume, your settings and your own answers say.</p>
+        <div class="field full" data-key="resume.primary"><div class="drop" id="wdrop">
+          <div style="font-size:22px">⇪</div><div><b>Drop your resume here</b> or click to choose</div>
+          <div class="hint">PDF, DOCX, TXT or MD · stored only on this computer</div>
+          <input type="file" id="wfile" accept=".pdf,.docx,.doc,.txt,.md,.rtf" hidden></div>
+          <div class="hint" id="wresume"></div></div>
+      </section>
+      <section class="wstep" data-step="sites"><h3>Job sites</h3><p>Choose where the agent may search and apply for you. For sites with an account, open the site and sign in yourself in the browser your AI assistant uses, then tick "I'm signed in". FreeApply never asks for or stores passwords. If a site signs you out, the agent keeps going on your other sites and asks you to sign in again.</p>
+        <div class="sites" data-sites></div>
+        <div class="fields" style="margin-top:12px">
+          <div class="field"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
+          <div class="field"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
+            <span class="hint">Runs while your AI app is open, until a hard stop. Budgets are in Settings → Auto-run.</span></div>
+        </div>
+      </section>
+      <section class="wstep" data-step="done"><h3>You're set</h3><p>Ask your AI assistant to "find and apply to jobs". You can change anything later in Settings, and the Issues tab lists anything the agent needs from you.</p></section>
+    </form>
+    <div class="btnrow"><button type="button" class="btn" id="wBack">Back</button><span style="flex:1"></span>
+      <button type="button" class="btn" id="wLater">Finish later</button><button type="button" class="btn green" id="wNext">Next</button></div>
+    <p class="count" id="wMsg" style="margin-top:8px"></p>
+  </div>
+</div>
+
+<!-- Lock screen: shown until the current Terms and Privacy Policy are accepted. Sharing choices live in Settings → Data sharing. -->
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div style="max-width:1100px;margin:0 auto 14px">
+    <div class="logo"><div class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06050c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l7-7 4 4 7-7"/><path d="M14 2h7v7"/><path d="M3 22h18"/></svg></div>
+      <div><h1 id="gateTitle">FREEAPPLY</h1><small id="gateSub">TERMS OF SERVICE · REQUIRED BEFORE USE</small></div></div>
+  </div>
+  <div class="gatebox">
+    <div class="panel gdocs">
+      <div class="seg" id="gseg">
+        <button type="button" data-d="terms" class="on">Terms of Service</button><button type="button" data-d="privacy">Privacy Policy</button>
+        <button type="button" data-d="disclosures">Disclosures</button><button type="button" data-d="recruiters">Recruiter Terms</button>
+      </div>
+      <div class="gdoc doc" id="gdoc"></div>
+    </div>
+    <div class="panel">
+      <h3>Before you start</h3>
+      <p class="count" style="margin:0 0 10px">Your job search stays on your computer. Read the documents on the left, then confirm below.</p>
+      <label class="agree"><input type="checkbox" id="gAge"><span>I am 18 or older.</span></label>
+      <label class="agree"><input type="checkbox" id="gAgree"><span>I have read and agree to the <a href="#" data-gd="terms">Terms of Service</a>, including the <a href="#" data-gd="disclosures">Disclosures</a>, and the <a href="#" data-gd="privacy">Privacy Policy</a>.</span></label>
+      <p class="notice" id="gNotice"></p>
+      <div class="btnrow"><button type="button" class="btn green" id="gAccept" disabled>Agree and continue</button></div>
+      <p class="count" id="gMsg" style="margin-top:8px"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const api = async (path, body) => {
+  const r = await fetch(path, body ? {method:"POST", headers:{"Content-Type":"application/json","X-FreeApply":"1"}, body:JSON.stringify(body)} : {});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;
+};
+const toast = (m, err) => { const t = $("#toast"); t.textContent = m; t.className = "toast on" + (err ? " err" : ""); clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast", 2600); };
+const fmtDate = s => s ? s.slice(0,10) : "—";
+const ago = s => { if (!s) return "never"; const m = (Date.now() - new Date(s)) / 6e4; return m < 60 ? Math.round(m)+"m ago" : m < 1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
+let S = {settings:null, statuses:{}, outcomes:{}, missing:[]}, JOBS = [], REPLIES = [], sortJ = {k:"submitted_at", d:-1}, sortR = {k:"received_at", d:-1};
+
+/* tabs */
+function show(tab){ tab = tab || "overview";
+  $$("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  $$("section.view").forEach(v => v.classList.toggle("on", v.id === "v-" + tab));
+  if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab); }
+$$("nav.tabs button").forEach(b => b.onclick = () => show(b.dataset.tab));
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+document.addEventListener("click", e => { const g = e.target.closest("[data-go]"); if (g) { e.preventDefault(); show(g.dataset.go); } });
+
+/* overview */
+function kpi(l, v, s, cls){ return `<div class="panel kpi ${cls||""}"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s||"")}</div></div>`; }
+function renderStats(st){
+  $("#kpis").innerHTML =
+    kpi("Applied", st.applied, `${st.applied_today} today · ${st.applied_7d} this week`, "g") +
+    kpi("Responses", st.responded, `${st.acknowledged} auto-acknowledged`, "p") +
+    kpi("Response rate", st.response_rate + "%", "real replies / applied", "p") +
+    kpi("Interviews", st.interviews, `${st.offers} offer${st.offers==1?"":"s"}`, "g") +
+    kpi("Rejections", st.rejections, "closed loops") +
+    kpi("Needs you", st.needs_you, "info, account or verification", st.needs_you ? "a" : "") +
+    kpi("Queued", st.queued, `${st.tracked} jobs tracked`) +
+    kpi("Avg fit", st.avg_fit ?? "—", "of applied jobs");
+  // 30-day bars
+  const d = st.daily, W = 640, H = 170, pad = 22, max = Math.max(1, ...d.map(x => x.count)), bw = (W - pad*2) / d.length;
+  let bars = d.map((x,i) => { const h = (H - 40) * x.count / max, y = H - 22 - h;
+    return `<rect x="${pad + i*bw + 2}" y="${y}" width="${bw - 4}" height="${Math.max(h, x.count?2:0)}" rx="3" fill="url(#gb)"><title>${x.date}: ${x.count}</title></rect>` +
+      (x.count ? `<text x="${pad + i*bw + bw/2}" y="${y - 4}" text-anchor="middle">${x.count}</text>` : ""); }).join("");
+  const ticks = [0, 7, 14, 21, 29].map(i => `<text x="${pad + i*bw + bw/2}" y="${H - 6}" text-anchor="middle">${d[i].date.slice(5)}</text>`).join("");
+  $("#chart").innerHTML = `<svg class="bars" viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" role="img" aria-label="Applications per day">
+    <defs><linearGradient id="gb" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#34f5a0"/></linearGradient></defs>
+    <line x1="${pad}" x2="${W-pad}" y1="${H-22}" y2="${H-22}" stroke="rgba(168,85,247,.3)"/>${bars}${ticks}</svg>`;
+  // funnel
+  const f = [["Applied", st.applied], ["Responded", st.responded], ["Interview", st.interviews + st.offers], ["Offer", st.offers]], fm = Math.max(1, st.applied);
+  $("#funnel").innerHTML = f.map(([l, n]) => `<div class="row"><div class="lab">${l}</div><div class="track"><div class="fill" style="width:${Math.max(4, 100*n/fm)}%">${n}</div></div></div>`).join("") +
+    `<div class="count" style="margin-top:10px">Last Gmail check: ${ago(st.last_reply_check)}</div>`;
+  $("#topJobs").innerHTML = st.top_jobs.length ? st.top_jobs.map(j => `<li><div class="t"><b>${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a>` : esc(j.title)}</b><span>${esc(j.company)}${j.pay_text ? " · " + esc(j.pay_text) : ""}</span></div>${j.outcome ? `<span class="badge b-${esc(j.outcome)}">${esc(j.outcome)}</span>` : ""}<span class="badge b-applied">${j.fit_score ?? "—"}</span></li>`).join("") : `<li class="empty">No applications yet</li>`;
+  const cm = Math.max(1, ...st.top_companies.map(c => c.n));
+  $("#topCos").innerHTML = st.top_companies.length ? st.top_companies.map(c => `<li><div class="t"><b>${esc(c.company)}</b><div class="hbar"><i style="width:${100*c.n/cm}%"></i></div></div><span class="count">${c.n}</span></li>`).join("") : `<li class="empty">—</li>`;
+  const ss = Object.entries(st.by_status).sort((a,b) => b[1]-a[1]);
+  const ISS = ["needs_info", "needs_account", "blocked"];
+  $("#statusList").innerHTML = ss.map(([k,n]) => { const b = `<span class="badge b-${esc(k)}">${esc(k.replace("_"," "))}</span>`;
+    return `<li><div class="t">${ISS.includes(k) ? `<a class="issue" href="#issues" data-iss="${k}" title="Resolve these">${b} <span class="count">→ resolve</span></a>` : b}</div><span class="count">${n}</span></li>`; }).join("") || `<li class="empty">—</li>`;
+  $("#setupPill").textContent = st.setup_complete ? "● SETUP COMPLETE" : "● SETUP NEEDED";
+  $("#setupPill").className = "pill " + (st.setup_complete ? "ok" : "warn");
+  $("#mailPill").textContent = "✉ CHECKED " + ago(st.last_reply_check).toUpperCase();
+  $("#welcome").style.display = st.setup_complete ? "none" : "block";
+}
+
+/* applications table */
+const val = (r, k) => k === "submitted_at" ? (r.submitted_at || r.updated_at || "") : r[k];
+function sorter(s){ return (a, b) => { let x = val(a, s.k), y = val(b, s.k);
+  if (x == null || x === "") return 1; if (y == null || y === "") return -1;
+  return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, {numeric:true})) * s.d; }; }
+function renderJobs(){
+  const q = $("#q").value.trim().toLowerCase(), fs = $("#fStatus").value, fo = $("#fOutcome").value, fm = $("#fMethod").value;
+  let rows = JOBS.filter(r => (!fs || r.status === fs) && (!fo || (fo === "__none" ? !r.outcome : r.outcome === fo)) && (!fm || (r.method||"") === fm) &&
+    (!q || [r.title, r.company, r.location, r.status_note].join(" ").toLowerCase().includes(q)));
+  rows.sort(sorter(sortJ));
+  $("#count").textContent = `${rows.length} of ${JOBS.length}`;
+  const outOpts = sel => `<option value="">—</option>` + Object.keys(S.outcomes).map(o => `<option ${o===sel?"selected":""}>${o}</option>`).join("");
+  $("#jobsTable tbody").innerHTML = rows.length ? rows.map(r => `<tr>
+    <td class="mono">${fmtDate(r.submitted_at || r.updated_at)}</td>
+    <td><b>${esc(r.company)}</b></td>
+    <td>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)}${r.status_note ? `<div class="sub" title="${esc(r.status_note)}">${esc(r.status_note)}</div>` : ""}</td>
+    <td>${esc(r.location || "")}${r.work_mode ? `<div class="sub">${esc(r.work_mode)}</div>` : ""}</td>
+    <td class="mono">${esc(r.pay_text || "")}</td>
+    <td class="num">${r.fit_score ?? ""}</td>
+    <td><span class="badge b-${esc(r.status)}">${esc((r.status||"").replace("_"," "))}</span></td>
+    <td><select data-id="${r.id}" class="outSel">${outOpts(r.outcome)}</select></td>
+    <td class="mono">${esc(r.method || "")}</td>
+    <td class="num">${r.reply_count || ""}</td></tr>`).join("") : `<tr><td colspan="10" class="empty">No jobs match</td></tr>`;
+  $$("#jobsTable th").forEach(th => th.classList.toggle("sorted", th.dataset.k === sortJ.k));
+}
+$$("#jobsTable th").forEach(th => th.onclick = () => { sortJ = {k: th.dataset.k, d: sortJ.k === th.dataset.k ? -sortJ.d : -1}; renderJobs(); });
+["#q", "#fStatus", "#fOutcome", "#fMethod"].forEach(s => $(s).addEventListener("input", renderJobs));
+$("#jobsTable").addEventListener("change", async e => {
+  if (!e.target.classList.contains("outSel")) return;
+  try { await api(`/api/jobs/${e.target.dataset.id}`, {outcome: e.target.value}); toast("Outcome saved"); load(); } catch (err) { toast(err.message, 1); } });
+$("#csv").onclick = () => {
+  const cols = ["id","submitted_at","company","title","location","work_mode","pay_text","fit_score","status","outcome","method","url","status_note"];
+  const csv = [cols.join(",")].concat(JOBS.map(r => cols.map(c => `"${String(r[c] ?? "").replace(/"/g,'""')}"`).join(","))).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"})); a.download = "freeapply-applications.csv"; a.click(); };
+
+/* replies table */
+function renderReplies(){
+  const rows = [...REPLIES].sort(sorter(sortR));
+  $("#rcount").textContent = `${rows.length} emails recorded`;
+  $("#repTable tbody").innerHTML = rows.length ? rows.map(r => `<tr><td class="mono">${esc((r.received_at||r.recorded_at||"").slice(0,16).replace("T"," "))}</td>
+    <td><b>${esc(r.company||"")}</b>${r.title ? `<div class="sub">${esc(r.title)}</div>` : ""}</td>
+    <td><span class="badge b-${esc(r.kind)}">${esc(r.kind)}</span></td><td>${esc(r.subject||"")}${r.summary ? `<div class="sub">${esc(r.summary)}</div>` : ""}</td>
+    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. The agent checks Gmail on its schedule.</td></tr>`;
+}
+$$("#repTable th").forEach(th => th.onclick = () => { sortR = {k: th.dataset.k, d: sortR.k === th.dataset.k ? -sortR.d : -1}; renderReplies(); });
+
+/* settings */
+const getP = (o, k) => k.split(".").reduce((a, p) => a?.[p], o);
+const setP = (o, k, v) => { const ps = k.split("."); let c = o; ps.slice(0,-1).forEach(p => c = c[p] ??= {}); c[ps.at(-1)] = v; };
+// Fills any form whose fields are named by settings path (the Settings tab and the setup wizard share this).
+function fillForm(root){
+  const s = S.settings;
+  root.querySelectorAll("[name]").forEach(el => { const v = getP(s, el.name);
+    el.value = el.hasAttribute("data-list") ? (v || []).join(", ") : v == null ? "" : String(v); });
+  root.querySelectorAll("[data-checks]").forEach(box => { const v = getP(s, box.dataset.checks) || [];
+    box.querySelectorAll("input").forEach(i => i.checked = v.includes(i.value)); });
+  root.querySelectorAll("[data-sites]").forEach(fillSites);
+  const miss = new Set(S.missing.map(m => m.key));
+  root.querySelectorAll(".field").forEach(fd => { const k = fd.dataset.key || fd.querySelector("[name]")?.name;
+    fd.classList.toggle("missing", miss.has(k));
+    const lab = fd.querySelector("label"); if (lab && fd.dataset.key && !lab.querySelector(".req")) lab.insertAdjacentHTML("beforeend", ` <span class="req">●</span>`); });
+}
+function fillSettings(){
+  const s = S.settings;
+  fillForm($("#sform"));
+  const r = s.resume || {}; const f = (r.files || []).find(x => x.path === r.primary);
+  $("#resumeInfo").innerHTML = f ? `✓ <b>${esc(f.name)}</b> · uploaded ${esc(fmtDate(f.uploaded_at))}` : "No resume uploaded yet";
+  $("#wresume").innerHTML = $("#resumeInfo").innerHTML;
+  $("#setDot").hidden = !S.missing.length;
+  $("#welcome2").style.display = S.missing.length ? "block" : "none";
+  $("#saveState").textContent = S.missing.length ? `${S.missing.length} required field${S.missing.length>1?"s":""} left: ${S.missing.map(m=>m.label).join(", ")}` : "All set";
+  $("#ivl").textContent = s.gmail.interval_hours;
+}
+function readForm(root = $("#sform")){
+  const p = {};
+  root.querySelectorAll("[name]").forEach(el => { let v = el.value.trim();
+    if (el.hasAttribute("data-list")) v = v ? v.split(",").map(x => x.trim()).filter(Boolean) : [];
+    else if (el.hasAttribute("data-bool")) v = v === "" ? null : v === "true";
+    else if (el.type === "number") v = v === "" ? null : Number(v);
+    setP(p, el.name, v); });
+  root.querySelectorAll("[data-checks]").forEach(box => setP(p, box.dataset.checks, [...box.querySelectorAll("input:checked")].map(i => i.value)));
+  const sites = root.querySelector("[data-sites]");
+  if (sites) Object.assign(p.automation ??= {}, readSites(sites));
+  return p;
+}
+$("#sform").onsubmit = async e => { e.preventDefault();
+  try { const r = await api("/api/settings", readForm()); S.settings = r.settings; S.missing = r.missing; fillSettings(); load(true);
+    toast(r.missing.length ? "Saved. A few required fields left." : "Settings saved. You're ready to go."); } catch (err) { toast(err.message, 1); } };
+const drop = $("#drop"), file = $("#resumeFile");
+drop.onclick = () => file.click();
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]));
+file.onchange = () => file.files[0] && upload(file.files[0]);
+async function upload(f){
+  if (f.size > 10 * 1024 * 1024) return toast("Resume must be under 10 MB", 1);
+  const b64 = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result.split(",")[1]); r.onerror = bad; r.readAsDataURL(f); });
+  const text = /\.(txt|md)$/i.test(f.name) ? await f.text() : "";
+  try { const r = await api("/api/resume", {filename: f.name, data_base64: b64, text}); S.settings = r.settings; S.missing = r.missing; fillSettings(); load(true); toast("Resume uploaded"); }
+  catch (err) { toast(err.message, 1); }
+}
+
+/* job sites: the user signs in on each site themselves; FreeApply keeps only which sites and when they confirmed */
+const nowLocal = () => { const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+function renderSites(box){
+  box.innerHTML = (S.sites || []).map(x => `<div class="site" data-row="${x.id}">
+    <label class="agree"><input type="checkbox" data-site="${x.id}"><span><b>${esc(x.name)}</b> <span class="count">${esc(x.note || "")}</span></span></label>
+    ${x.signin ? `<div class="signin"><a class="btn sm" href="${esc(x.url)}" target="_blank" rel="noopener">Open ${esc(x.name)} ↗</a>
+      <label class="agree"><input type="checkbox" data-signed="${x.id}"><span>I'm signed in</span></label></div>` : ""}
+    <span class="warn" data-warn="${x.id}" hidden></span></div>`).join("");
+  box.querySelectorAll("[data-site]").forEach(i => i.addEventListener("change", () => siteRow(box, i.dataset.site)));
+}
+function siteRow(box, id){
+  const on = box.querySelector(`[data-site="${id}"]`).checked, sig = box.querySelector(`[data-signed="${id}"]`);
+  if (sig) { sig.disabled = !on; sig.closest(".signin").style.opacity = on ? 1 : .45; }
+}
+function fillSites(box){
+  if (!box.children.length) renderSites(box);
+  const a = S.settings.automation || {}, t = nowLocal();
+  box.querySelectorAll("[data-site]").forEach(i => i.checked = (a.sources || []).includes(i.dataset.site));
+  box.querySelectorAll("[data-signed]").forEach(i => i.checked = !!a.signed_in?.[i.dataset.signed] && !a.signed_out?.[i.dataset.signed]);
+  box.querySelectorAll("[data-warn]").forEach(w => { const id = w.dataset.warn, out = a.signed_out?.[id], until = a.site_paused_until?.[id];
+    const msg = out ? `Signed out ${ago(out)}. Sign in again on the site, then tick "I'm signed in". The agent is using your other sites meanwhile.`
+      : until && until > t ? `Paused until ${fmtDate(until)}: the site's own daily limit was reached.` : "";
+    w.textContent = msg; w.hidden = !msg; });
+  box.querySelectorAll("[data-site]").forEach(i => siteRow(box, i.dataset.site));
+}
+function readSites(box){
+  const a = S.settings.automation || {}, sources = [], signed_in = {}, signed_out = {};
+  box.querySelectorAll("[data-site]:checked").forEach(i => sources.push(i.dataset.site));
+  box.querySelectorAll("[data-signed]").forEach(i => { const id = i.dataset.signed, was = !!a.signed_in?.[id] && !a.signed_out?.[id];
+    if (i.checked) { signed_in[id] = was ? a.signed_in[id] : nowLocal(); signed_out[id] = null; } else signed_in[id] = null; });
+  return {sources, signed_in, signed_out};
+}
+
+/* auto-run status and the Stop button */
+async function loadAutorun(){
+  try {
+    const a = await api("/api/autorun"), r = a.running;
+    $("#arInfo").innerHTML = `<span>Schedule</span><span>${!a.enabled ? "off" : a.schedule_created ? "set up in your AI app" : "not set up yet: ask your AI assistant to set up FreeApply"}</span>
+      <span>Now</span><span>${r ? `running · ${esc(r.applied)} applied · ${esc(r.minutes_left)} min left${r.stop_requested ? " · stopping" : ""}` : "not running"}</span>
+      ${a.recent?.length ? `<span>Last run</span><span>${esc(a.recent[0].summary)}</span>` : ""}`;
+    $("#arStop").hidden = !r || r.stop_requested;
+    const out = (a.sites || []).filter(x => x.signed_out_at);
+    $("#siteWarn").style.display = out.length ? "block" : "none";
+    $("#siteWarn").innerHTML = out.length ? `<b>${esc(out.map(x => x.name).join(", "))} signed you out.</b> Sign in again on the site, then tick "I'm signed in" in <a href="#settings" data-go="settings">Settings → Job sites</a>. The agent keeps applying on your other sites meanwhile.` : "";
+  } catch { /* older dashboard server without auto-run */ }
+}
+/* sponsored card */
+async function loadSponsor(){
+  const el = $("#sponsor");
+  try {
+    const {ad} = await api("/api/sponsor?slot=overview");
+    el.hidden = !ad; if (!ad) return;
+    // FTC: paid cards say "Sponsored"; affiliate cards also say we may earn a commission; our own promotions say so.
+    const tag = {house: "From FreeApply", affiliate: "Sponsored · we may earn a commission"}[ad.kind] || "Sponsored";
+    const rel = ad.kind === "house" ? "noopener noreferrer" : "sponsored noopener noreferrer";
+    el.innerHTML = `<span class="tag">${tag}</span><div class="body"><b>${esc(ad.title)}</b><p>${esc(ad.text)}${ad.sponsor && ad.kind !== "house" ? ` · ${esc(ad.sponsor)}` : ""}</p></div>
+      <a class="btn sm" href="${esc(ad.url)}" target="_blank" rel="${rel}" data-ad="${esc(ad.id)}">${esc(ad.cta)} ↗</a>`;
+  } catch { el.hidden = true; }
+}
+document.addEventListener("click", e => { const a = e.target.closest("a[data-ad]"); if (!a) return;
+  fetch("/api/sponsor/click", {method: "POST", keepalive: true, headers: {"Content-Type": "application/json", "X-FreeApply": "1"},
+    body: JSON.stringify({id: a.dataset.ad})}).catch(() => {}); });
+$("#arStop").onclick = async () => { await api("/api/autorun/stop", {}); toast("The run stops before its next job"); loadAutorun(); };
+
+/* setup wizard: after the Terms on a fresh install, before the dashboard; each step saves as you go */
+const WSTEPS = $$("#wform .wstep");
+const STEP_KEYS = {profile: ["profile.full_name", "profile.email"], targets: ["targets.desired_roles", "targets.min_pay", "targets.locations"],
+  eligibility: ["eligibility.work_authorized"], resume: ["resume.primary"]};
+let WI = 0;
+const wizNeeded = () => { const o = S.settings?.onboarding || {}; return !!S.missing?.length && !o.completed_at && !o.dismissed_at; };
+function wizOpen(){
+  fillForm($("#wform"));
+  $("#wiz").classList.add("on"); document.body.style.overflow = "hidden";
+  const miss = new Set(S.missing.map(m => m.key));
+  const first = WSTEPS.findIndex(st => (STEP_KEYS[st.dataset.step] || []).some(k => miss.has(k)));
+  wizShow(first < 0 ? 0 : first);
+}
+function wizClose(){ $("#wiz").classList.remove("on"); document.body.style.overflow = ""; }
+function wizShow(i){
+  WI = i; WSTEPS.forEach((st, n) => st.hidden = n !== i);
+  const last = i === WSTEPS.length - 1;
+  $("#wizStep").textContent = `Step ${i + 1} of ${WSTEPS.length}`;
+  $("#wizBar").style.width = `${Math.round(100 * (i + 1) / WSTEPS.length)}%`;
+  $("#wBack").disabled = i === 0; $("#wNext").textContent = last ? "Go to dashboard" : "Next"; $("#wLater").hidden = last; $("#wMsg").textContent = "";
+}
+async function wizSave(patch){ const r = await api("/api/settings", patch); S.settings = r.settings; S.missing = r.missing; fillSettings(); fillForm($("#wform")); }
+$("#wBack").onclick = () => wizShow(Math.max(0, WI - 1));
+$("#wNext").onclick = async () => {
+  const st = WSTEPS[WI], key = st.dataset.step;
+  try {
+    if (key === "done") { await wizSave({onboarding: {completed_at: nowLocal()}}); wizClose(); toast("You're all set."); return load(); }
+    if (key !== "resume") await wizSave(readForm(st));
+    const left = S.missing.filter(m => (STEP_KEYS[key] || []).includes(m.key));
+    if (left.length) return $("#wMsg").textContent = `Required: ${left.map(m => m.label).join(", ")}`;
+    wizShow(WI + 1);
+  } catch (err) { $("#wMsg").textContent = err.message; }
+};
+$("#wLater").onclick = async () => {
+  try { await wizSave({...readForm(WSTEPS[WI]), onboarding: {dismissed_at: nowLocal()}}); wizClose(); toast("Saved. Finish setup anytime in Settings."); load(); }
+  catch (err) { $("#wMsg").textContent = err.message; }
+};
+const wdrop = $("#wdrop"), wfile = $("#wfile");
+wdrop.onclick = () => wfile.click();
+["dragenter","dragover"].forEach(ev => wdrop.addEventListener(ev, e => { e.preventDefault(); wdrop.classList.add("over"); }));
+["dragleave","drop"].forEach(ev => wdrop.addEventListener(ev, e => { e.preventDefault(); wdrop.classList.remove("over"); }));
+wdrop.addEventListener("drop", e => e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]));
+wfile.onchange = () => wfile.files[0] && upload(wfile.files[0]);
+
+/* issues */
+let ISSUES = {needs_info:[], needs_account:[], blocked:[]};
+function issueSeg(k){ $$("#issSeg button").forEach(b => b.classList.toggle("on", b.dataset.i === k)); $$(".isslist").forEach(d => d.hidden = d.id !== "iss-" + k); }
+$("#issSeg").onclick = e => { const b = e.target.closest("button"); if (b) issueSeg(b.dataset.i); };
+document.addEventListener("click", e => { const a = e.target.closest("a[data-iss]"); if (a) { e.preventDefault(); show("issues"); issueSeg(a.dataset.iss); } });
+const jobHead = j => `<div class="hd"><div class="t"><b>${esc(j.title)}</b><span class="count">${esc(j.company)}${j.location ? " · " + esc(j.location) : ""}${j.pay_text ? " · " + esc(j.pay_text) : ""}</span></div>
+  ${(j.apply_url || j.url) ? `<a class="btn" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open posting ↗</a>` : ""}</div>`;
+function qInput(q){
+  const name = `q${q.id}`, v = q.answer ?? q.suggested ?? "";
+  if (q.qtype === "yesno") q = {...q, qtype: "choice", options: ["Yes", "No"]};
+  if (q.qtype === "choice" && q.options) return q.options.length > 5
+    ? `<select name="${name}"><option value="">Choose…</option>${q.options.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("")}</select>`
+    : `<div class="opts">${q.options.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${o==v?"checked":""}>${esc(o)}</label>`).join("")}</div>`;
+  if (q.qtype === "multi" && q.options) { let cur = []; try { cur = JSON.parse(v || "[]"); } catch {}
+    return `<div class="opts">${q.options.map(o => `<label><input type="checkbox" name="${name}" value="${esc(o)}" ${cur.includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div>`; }
+  if (q.qtype === "textarea") return `<textarea name="${name}">${esc(v)}</textarea>`;
+  return `<input type="${q.qtype === "number" ? "number" : q.qtype === "date" ? "date" : "text"}" name="${name}" value="${esc(v)}">`;
+}
+function qValue(card, q){
+  if (q.qtype === "multi") return [...card.querySelectorAll(`input[name="q${q.id}"]:checked`)].map(i => i.value);
+  const r = card.querySelector(`input[name="q${q.id}"]:checked`); if (r) return r.value;
+  const el = card.querySelector(`[name="q${q.id}"]`); return el && el.type !== "radio" ? el.value.trim() : "";
+}
+function renderIssues(){
+  const I = ISSUES, n = k => I[k].length;
+  $("#cNI").textContent = `(${n("needs_info")})`; $("#cNA").textContent = `(${n("needs_account")})`; $("#cBL").textContent = `(${n("blocked")})`;
+  $("#issDot").hidden = !(n("needs_info") + n("needs_account") + n("blocked"));
+  $("#iss-needs_info").innerHTML = I.needs_info.length ? I.needs_info.map(j => `<div class="panel icard" data-job="${j.id}">${jobHead(j)}
+    ${j.questions.map(q => `<div class="qrow ${q.answer ? "done" : ""}"><div class="ql">${esc(q.label)}${q.required ? ' <span class="req">●</span>' : ""}</div>${qInput(q)}
+      <label class="keep"><input type="checkbox" data-keep="${q.id}" ${q.suggested ? "checked" : ""}> Reuse this answer on future applications</label>${q.suggested && !q.answer ? '<div class="count">Filled from an answer you saved earlier</div>' : ""}</div>`).join("")}
+    <div class="btnrow"><button type="button" class="btn green" data-save="${j.id}">Save answers and re-queue</button></div></div>`).join("")
+    : `<div class="panel empty">No open questions. The agent adds them here when a form asks something your settings don't answer.</div>`;
+  const acct = $("#iss-needs_account"), keep = acct.firstElementChild;
+  acct.innerHTML = ""; acct.appendChild(keep);
+  acct.insertAdjacentHTML("beforeend", I.needs_account.length ? I.needs_account.map(j => `<div class="panel icard">${jobHead(j)}
+    <div class="kv"><span>Site</span><span class="mono">${esc(j.domain || "")}</span><span>Why</span><span>${esc(j.status_note || "The employer's site requires an account")}</span>
+    ${j.account ? `<span>Account</span><span style="color:var(--green)">created ${esc(fmtDate(j.account.created_at))} with ${esc(j.account.email_used)}</span>` : ""}</div>
+    <div class="btnrow"><a class="btn" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open sign-up ↗</a>
+      <button type="button" class="btn green" data-acct="${j.id}">I created an account</button></div></div>`).join("")
+    : `<div class="panel empty">No jobs are waiting on an account.</div>`);
+  $("#iss-blocked").innerHTML = I.blocked.length ? I.blocked.map(j => `<div class="panel icard">${jobHead(j)}
+    <div class="kv"><span>Reason</span><span>${esc(j.status_note || "Verification or CAPTCHA")}</span></div>
+    <div class="btnrow"><button type="button" class="btn green" data-done="${j.id}">I applied myself</button><button type="button" class="btn" data-retry="${j.id}">Re-queue for the agent</button></div></div>`).join("")
+    : `<div class="panel empty">Nothing blocked.</div>`;
+  buildBookmarklet();
+}
+document.addEventListener("click", async e => {
+  const t = e.target;
+  try {
+    if (t.dataset.save) { const card = t.closest(".icard"), j = ISSUES.needs_info.find(x => x.id == t.dataset.save);
+      const answers = j.questions.map(q => ({id: q.id, answer: qValue(card, q), save: card.querySelector(`[data-keep="${q.id}"]`).checked}));
+      const r = await api("/api/issues/answer", {answers});
+      toast(r.requeued.length ? "Saved. The job is back in the agent's queue." : "Saved. Some required answers are still empty."); load(true); }
+    if (t.dataset.acct) { const email = prompt("Which email did you use for this account? (Passwords stay in your browser's password manager.)", S.settings?.profile?.email || "");
+      if (!email) return; await api("/api/issues/account", {job_id: +t.dataset.acct, email}); toast("Got it. Sign in on that site, then the agent can continue."); load(true); }
+    if (t.dataset.done) { await api(`/api/jobs/${t.dataset.done}`, {status: "applied", note: "Applied manually by the user"}); toast("Marked as applied"); load(true); }
+    if (t.dataset.retry) { await api(`/api/jobs/${t.dataset.retry}`, {status: "found", note: "Re-queued by the user from the Issues tab"}); toast("Re-queued"); load(true); }
+  } catch (err) { toast(err.message, 1); }
+});
+function buildBookmarklet(){
+  const p = S.settings?.profile || {}, [first, ...rest] = (p.full_name || "").split(" ");
+  const P = {first, last: rest.join(" "), full: p.full_name, email: p.email, phone: p.phone, city: p.city, region: p.region, country: p.country, linkedin: p.linkedin_url, site: p.portfolio_url};
+  const code = `(function(){var P=${JSON.stringify(P)},n=0;function set(el,v){if(!v||(el.tagName!=='SELECT'&&el.value)||el.value===v)return;var d=Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value');d.set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));n++}
+var R=[[/user.?name|login|e-?mail/i,P.email],[/first.?name|given.?name|fname/i,P.first],[/last.?name|family.?name|surname|lname/i,P.last],[/full.?name|^\\s*name\\s*$|your.?name/i,P.full],[/phone|mobile|\\btel\\b/i,P.phone],[/city|town/i,P.city],[/\\bstate\\b|province|region/i,P.region],[/country/i,P.country],[/linkedin/i,P.linkedin],[/website|portfolio/i,P.site]];
+document.querySelectorAll('input,select').forEach(function(el){var t=(el.type||'').toLowerCase();if(['password','hidden','submit','button','checkbox','radio','file','search'].indexOf(t)>-1)return;var lab=el.labels&&el.labels[0]?el.labels[0].innerText:'';var k=[el.name,el.id,el.getAttribute('autocomplete'),el.placeholder,el.getAttribute('aria-label'),lab].join(' ');
+for(var i=0;i<R.length;i++){if(R[i][0].test(k)){if(el.tagName==='SELECT'){var o=[].find.call(el.options,function(o){return R[i][1]&&o.text.toLowerCase().indexOf(String(R[i][1]).toLowerCase())===0});if(o)set(el,o.value)}else set(el,R[i][1]);break}}});
+alert('FreeApply filled '+n+' field(s). Check them, then let your browser suggest and save a strong password.')})();`;
+  $("#bookmarklet").href = "javascript:" + encodeURIComponent(code);
+}
+$("#bookmarklet").onclick = e => { e.preventDefault(); toast("Drag this button to your bookmarks bar, then click it on a sign-up page"); };
+
+/* legal documents */
+const DOCS = {};
+async function doc(name){ if (!DOCS[name]) { const r = await fetch("/api/legal/" + name); DOCS[name] = await r.text(); } return DOCS[name]; }
+async function fillDocTabs(){ for (const el of $$("[data-doc]")) el.innerHTML = await doc(el.dataset.doc); }
+
+/* lock screen */
+let CONSENT = null;
+async function gateDoc(name){ $$("#gseg button").forEach(b => b.classList.toggle("on", b.dataset.d === name)); $("#gdoc").innerHTML = await doc(name); $("#gdoc").scrollTop = 0; }
+$("#gseg").onclick = e => { const b = e.target.closest("button"); if (b) gateDoc(b.dataset.d); };
+$("#gate").addEventListener("click", e => {
+  const a = e.target.closest("a[data-gd], #gdoc a[href^='#']"); if (!a) return;
+  e.preventDefault(); gateDoc(a.dataset.gd || a.getAttribute("href").slice(1)); });
+function gateValid(){
+  const ok = $("#gAge").checked && $("#gAgree").checked;
+  $("#gAccept").disabled = !ok;
+  $("#gMsg").textContent = ok ? "" : "Confirm both boxes to continue.";
+}
+$("#gate").addEventListener("input", gateValid);
+$("#gAccept").onclick = async () => {
+  try {
+    // Sharing follows the regional defaults stated in the notice; choices are changed in Settings → Data sharing.
+    await api("/api/consent", {accept_terms: $("#gAgree").checked, age_confirmed: $("#gAge").checked});
+    toast("Thanks. You're all set."); await checkGate(); load();
+  } catch (err) { $("#gMsg").textContent = err.message; }
+};
+// One-line notice at collection, shown beside the agreement in the same type as the rest of the panel.
+// It states what accepting will actually do: choices already made are kept, undecided ones take the regional default.
+function gateNotice(){
+  const sh = CONSENT.sharing || {}, d = CONSENT.defaults || {};
+  const on = n => !CONSENT.gpc && (typeof sh[n] === "boolean" ? sh[n] : d[n] === true);
+  const what = [on("usage_stats") && "anonymous usage statistics", on("job_market") && "job-market data (no name or contact details)",
+    on("talent_pool") && "your Talent Pool profile"].filter(Boolean);
+  const link = `<a href="#" data-gd="privacy">What is shared</a>`;
+  $("#gNotice").innerHTML = what.length
+    ? `FreeApply shares ${what.join(" and ").replace(/ and (?=.* and )/, ", ")} unless you turn this off in Settings → Data sharing. ${link}`
+    : `${CONSENT.gpc ? "Your browser sends a Global Privacy Control signal, so n" : "N"}othing is shared unless you turn it on in Settings → Data sharing. ${link}`;
+}
+async function checkGate(){
+  CONSENT = await api("/api/consent");
+  const lock = !CONSENT.ok;
+  $("#gate").classList.toggle("on", lock);
+  document.body.style.overflow = lock ? "hidden" : "";
+  if (lock) {
+    gateNotice();
+    $("#gateSub").textContent = CONSENT.accepted_at ? "UPDATED TERMS · PLEASE REVIEW AND ACCEPT" : "TERMS OF SERVICE · REQUIRED BEFORE USE";
+    if (!$("#gdoc").innerHTML) gateDoc("terms");
+    gateValid();
+  } else fillShare();
+  return CONSENT;
+}
+
+/* data sharing panel */
+function fillShare(){
+  const sh = CONSENT.sharing;
+  $$("[data-share]").forEach(i => i.checked = sh[i.dataset.share] === true);
+  $("[data-share='talent_include_phone']").disabled = sh.talent_pool !== true;
+  $("#shEmailOn").checked = !!sh.email_updates; $("#shEmail").value = sh.updates_email || "";
+  const st = v => v === true ? "on" : "off";
+  $("#shSummary").textContent = `Usage statistics ${st(sh.usage_stats)} · Job-market data ${st(sh.job_market)} · Talent Pool ${st(sh.talent_pool)} · Update emails ${st(sh.email_updates)}`;
+  $("#shInfo").innerHTML = `<span>Installation ID</span><span class="mono">${esc(sh.install_id)}</span>
+    <span>Terms accepted</span><span>${esc(fmtDate(CONSENT.accepted_at))} · v${esc(CONSENT.terms_version)}</span>
+    <span>Last sync</span><span>${esc(sh.last_sync ? ago(sh.last_sync) : "never")}${sh.last_sync_result && sh.last_sync_result !== "ok" ? " · " + esc(sh.last_sync_result) : ""}</span>
+    <span>Server</span><span>${CONSENT.endpoint_configured ? "connected" : "not configured, nothing is sent"}</span>
+    ${CONSENT.gpc ? `<span>GPC</span><span style="color:var(--amber)">Global Privacy Control on: Talent Pool off</span>` : ""}`;
+}
+async function saveShare(patch){ try { const r = await api("/api/sharing", patch); if (r.gpc && patch.talent_pool) toast("Global Privacy Control is on, so the Talent Pool stays off", 1); else toast("Data sharing updated"); await checkGate(); } catch (err) { toast(err.message, 1); } }
+$$("[data-share]").forEach(i => i.addEventListener("change", async () => {
+  if (i.dataset.share === "talent_pool" && i.checked) {
+    const p = await api("/api/sharing/preview?talent=1");
+    const ok = confirm("Join the Recruiter Talent Pool?\n\nRecruiters who pay for access will see your name, email, location, links, job targets and resume text, and may contact you. This is a sale of your personal information. You can leave anytime, but recruiters keep copies they already saved.\n\nUse 'Preview shared data' to see exactly what is shared.");
+    if (!ok) { i.checked = false; return; }
+  }
+  saveShare({[i.dataset.share]: i.checked}); }));
+$("#shEmailOn").addEventListener("change", () => { const e = $("#shEmail").value.trim();
+  if ($("#shEmailOn").checked && !/.+@.+\..+/.test(e)) { $("#shEmailOn").checked = false; return toast("Enter an email first", 1); }
+  saveShare({email_updates: $("#shEmailOn").checked, updates_email: e}); });
+$("#shPreview").onclick = async () => { const p = await api("/api/sharing/preview"); $("#shOut").hidden = false; $("#shOut").textContent = JSON.stringify(p, null, 2); };
+$("#shSync").onclick = async () => { const r = await api("/api/sharing/sync", {}); toast(r.sent ? "Synced" : "Not sent: " + r.reason, !r.sent); checkGate(); };
+$("#shDelete").onclick = async () => {
+  if (!confirm("Delete everything this installation has shared with the FreeApply server and turn all sharing off? A new installation ID will be created.")) return;
+  const r = await api("/api/sharing/delete", {}); toast(r.error ? "Delete failed: " + r.error : "Shared data deleted", !!r.error); checkGate(); };
+
+/* load */
+async function load(skipSettings){
+  try {
+    if (!CONSENT || !CONSENT.ok) { await checkGate(); if (!CONSENT.ok) return; }
+    const [st, jobs, reps, iss] = await Promise.all([api("/api/stats"), api("/api/jobs"), api("/api/replies"), api("/api/issues")]);
+    JOBS = jobs; REPLIES = reps; ISSUES = iss; renderStats(st);
+    if (!skipSettings) { const s = await api("/api/settings"); S = {...s};
+      $("#fStatus").innerHTML = `<option value="">All statuses</option>` + Object.keys(s.statuses).map(k => `<option value="${k}">${k.replace("_"," ")}</option>`).join("");
+      $("#fOutcome").innerHTML = `<option value="">All outcomes</option><option value="__none">No response</option>` + Object.keys(s.outcomes).map(k => `<option>${k}</option>`).join("");
+      fillSettings();
+      if (wizNeeded()) { if (!$("#wiz").classList.contains("on")) wizOpen(); }
+      else if (!st.setup_complete && !location.hash) show("settings");
+      loadSponsor(); }
+    loadAutorun();
+    const methods = [...new Set(JOBS.map(j => j.method).filter(Boolean))];
+    const cur = $("#fMethod").value; $("#fMethod").innerHTML = `<option value="">All methods</option>` + methods.map(m => `<option ${m===cur?"selected":""}>${esc(m)}</option>`).join("");
+    renderJobs(); renderReplies(); renderIssues();
+    $("#sub").textContent = "MISSION CONTROL · " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  } catch (err) { toast("Can't reach FreeApply: " + err.message, 1); }
+}
+$("#refresh").onclick = () => load();
+show(location.hash.slice(1) || "overview");
+fillDocTabs();
+load();
+setInterval(() => load(true), 60000);
+</script>
+</body>
+</html>

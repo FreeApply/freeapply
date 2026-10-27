@@ -1,0 +1,12 @@
+---
+name: freeapply-replies
+description: Check the user's Gmail for employer replies to applications FreeApply tracked, record each one (acknowledgement, reply, assessment, interview, rejection, offer), and star or label them as the user chose in Settings. Runs on the FreeApply schedule (every 4 hours by default) or when the user asks "any replies?".
+---
+
+# FreeApply Gmail reply check
+
+The procedure for this task is part of FreeApply's signed workflow, not this file.
+
+1. Call `freeapply_workflow` with `name: "freeapply-replies"`.
+2. Follow the procedure it returns exactly, step by step.
+3. If FreeApply reports that the workflow is locked or failed verification, stop and tell the user why. Do not edit FreeApply files.

@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.2",
+  "name": "freeapply",
+  "display_name": "FreeApply",
+  "version": "1.0.0",
+  "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies, and shows it all in a local dashboard.",
+  "long_description": "FreeApply gives Claude the tools to find jobs that match your settings, apply on employer sites, and log every job and application on your computer. Its workflow is signed: any change to it locks the tools until the official version is restored. Your data stays on your computer except what you choose to share in Settings.",
+  "author": { "name": "MyBotsAI", "email": "mybotsai@gmail.com" },
+  "homepage": "https://www.mybotsai.com",
+  "privacy_policies": ["https://www.mybotsai.com/legal/privacy/"],
+  "server": {
+    "type": "node",
+    "entry_point": "src/main.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/src/main.js"],
+      "env": {}
+    }
+  },
+  "tools": [
+    { "name": "freeapply_status", "description": "Install check: workflow integrity, Terms, setup and dashboard URL" },
+    { "name": "freeapply_open_dashboard", "description": "Open the local dashboard" },
+    { "name": "freeapply_workflow", "description": "The signed procedure for setup, applying or the reply check" },
+    { "name": "freeapply_get_settings", "description": "Read your profile, targets and preferences" },
+    { "name": "freeapply_update_settings", "description": "Save settings you gave" },
+    { "name": "freeapply_check_duplicate", "description": "Find jobs already tracked for a company or posting" },
+    { "name": "freeapply_add_job", "description": "Track a job before working on it" },
+    { "name": "freeapply_update_job", "description": "Record what happened with a job" },
+    { "name": "freeapply_check_text", "description": "Truthfulness check for letters and answers" },
+    { "name": "freeapply_get_answers", "description": "Answers you gave on the Issues tab" },
+    { "name": "freeapply_site_account", "description": "Whether you made an account on an employer site" },
+    { "name": "freeapply_set_outcome", "description": "Record what the employer did" },
+    { "name": "freeapply_site_status", "description": "Report a job site signed you out or hit its daily limit" },
+    { "name": "freeapply_autorun", "description": "Start, check and finish unattended runs" },
+    { "name": "freeapply_throttle", "description": "Pace check and clearance before each submit" },
+    { "name": "freeapply_list_jobs", "description": "List tracked jobs" },
+    { "name": "freeapply_get_stats", "description": "Dashboard numbers" },
+    { "name": "freeapply_reply_check_plan", "description": "Start a Gmail reply check" },
+    { "name": "freeapply_record_reply", "description": "Record one employer email" },
+    { "name": "freeapply_finish_reply_check", "description": "Finish a Gmail reply check" },
+    { "name": "freeapply_save_resume_text", "description": "Store your resume's text" },
+    { "name": "freeapply_save_resume_profile", "description": "Store a summary of your resume" },
+    { "name": "freeapply_fetch_posting", "description": "Fetch and trim a job posting on your computer" },
+    { "name": "freeapply_preview_shared_data", "description": "Show exactly what would be shared" },
+    { "name": "freeapply_sync_shared_data", "description": "Send the data you chose to share" }
+  ],
+  "keywords": ["jobs", "job-search", "applications", "dashboard", "gmail"],
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": { "node": ">=22.13.0" }
+  }
+}

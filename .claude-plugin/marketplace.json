@@ -1,0 +1,13 @@
+{
+  "name": "freeapply",
+  "owner": {
+    "name": "MyBotsAI"
+  },
+  "plugins": [
+    {
+      "name": "freeapply",
+      "source": "./",
+      "description": "Job-search agent with a local dashboard, any role or field."
+    }
+  ]
+}

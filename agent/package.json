@@ -1,0 +1,14 @@
+{
+  "name": "freeapply-agent",
+  "version": "1.0.0",
+  "description": "FreeApply local agent: MCP server, dashboard and signed workflow. No dependencies.",
+  "type": "module",
+  "main": "src/main.js",
+  "private": true,
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "start": "node src/main.js",
+    "dashboard": "node src/main.js --dashboard",
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "freeapply": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/agent/src/main.js", "--skills-dir", "${CLAUDE_PLUGIN_ROOT}/skills"]
+    }
+  }
+}
