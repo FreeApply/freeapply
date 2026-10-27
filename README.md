@@ -119,7 +119,12 @@ is refused.
 | `skills/` | Claude Code skills that point to the signed procedures |
 | `.claude-plugin/`, `.mcp.json` | Claude Code plugin and marketplace files |
 | `release-notes/` | What changed in each version |
+| `LICENSE` | MIT License for the source code |
+
+## License
+The source code is released under the [MIT License](LICENSE). The FreeApply name and logo are not covered by it; use
+of FreeApply and of the services we host is governed by the
+[Terms of Service](https://www.mybotsai.com/legal/terms/).
 
 ## Contact
-MyBotsAI · mybotsai@gmail.com. Use of FreeApply is governed by its
-[Terms of Service](https://www.mybotsai.com/legal/terms/).
+MyBotsAI · mybotsai@gmail.com.

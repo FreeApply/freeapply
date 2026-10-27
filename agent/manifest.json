@@ -7,6 +7,7 @@
   "long_description": "FreeApply gives Claude the tools to find jobs that match your settings, apply on employer sites, and log every job and application on your computer. Its workflow is signed: any change to it locks the tools until the official version is restored. Your data stays on your computer except what you choose to share in Settings.",
   "author": { "name": "MyBotsAI", "email": "mybotsai@gmail.com" },
   "homepage": "https://www.mybotsai.com",
+  "license": "MIT",
   "privacy_policies": ["https://www.mybotsai.com/legal/privacy/"],
   "server": {
     "type": "node",

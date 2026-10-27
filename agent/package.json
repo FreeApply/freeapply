@@ -2,6 +2,7 @@
   "name": "freeapply-agent",
   "version": "1.0.0",
   "description": "FreeApply local agent: MCP server, dashboard and signed workflow. No dependencies.",
+  "license": "MIT",
   "type": "module",
   "main": "src/main.js",
   "private": true,

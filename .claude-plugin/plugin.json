@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies on a schedule, and shows it all in a local dark-mode dashboard with first-run setup.",
   "author": { "name": "MyBotsAI" },
+  "homepage": "https://www.mybotsai.com",
+  "repository": "https://github.com/FreeApply/freeapply",
+  "license": "MIT",
   "keywords": ["jobs", "job-search", "applications", "dashboard", "gmail", "mcp"]
 }

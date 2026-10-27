@@ -1,11 +1,12 @@
 # FreeApply public repository (published from FreeApply/prod).
 # Allow-list: everything is private unless it is named below, so a new file stays out until someone decides it is
-# public. Public means what users already receive: the app package, the Claude Code plugin files, this README and the
-# release notes. The server, website, deploy kit, release tools, workflow source, ad deals, internal docs and the
+# public. Public means what users already receive: the app package, the Claude Code plugin files, this README, the
+# license and the release notes. The server, website, deploy kit, release tools, workflow source, ad deals, internal docs and the
 # handoff stay private.
 /*
 !/.gitignore
 !/README.md
+!/LICENSE
 !/release-notes/
 !/.claude-plugin/
 !/.mcp.json
