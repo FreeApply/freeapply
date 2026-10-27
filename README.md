@@ -5,7 +5,7 @@ AI app you already use, tracks every application in a local dashboard and checks
 any field.
 
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
-**Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md)
+**Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
 Current version: **1.0.0** ([notes](release-notes/1.0.0.md)). The app and its legal documents share one version
 number.
@@ -27,7 +27,7 @@ number.
 |---|---|
 | Claude Desktop | Download [`freeapply.mcpb`](https://www.mybotsai.com/appserver/freeapply.mcpb) and double-click it, or drag it into Settings → Extensions. Nothing else to install. |
 | Claude Code, Cursor, VS Code, Windsurf | Windows: `irm https://www.mybotsai.com/appserver/install.ps1 \| iex`<br>macOS and Linux: `curl -fsSL https://www.mybotsai.com/appserver/install.sh \| bash`<br>Needs Node.js 22.13 or newer. The installer checks the package's signature, then asks before adding FreeApply to each app it finds. |
-| Claude Code, from this repository | `/plugin marketplace add OWNER/REPO`, then `/plugin install freeapply@freeapply` |
+| Claude Code, from this repository | `/plugin marketplace add FreeApply/freeapply`, then `/plugin install freeapply@freeapply` |
 | Any other MCP app | Unpack `freeapply.mcpb` (it is a ZIP file) and add a stdio server that runs `node /path/to/freeapply/src/main.js`. |
 
 To update, install the new version the same way. To uninstall, see https://www.mybotsai.com/install/#uninstall. Your
