@@ -7,6 +7,6 @@ description: Check the user's Gmail for employer replies to applications FreeApp
 
 The procedure for this task is part of FreeApply's signed workflow, not this file.
 
-1. Call `freeapply_workflow` with `name: "freeapply-replies"`.
+1. Call `freeapply_status` with `procedure: "freeapply-replies"`; the procedure is in its `procedure.text`.
 2. Follow the procedure it returns exactly, step by step.
 3. If FreeApply reports that the workflow is locked or failed verification, stop and tell the user why. Do not edit FreeApply files.

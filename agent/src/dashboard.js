@@ -10,6 +10,7 @@ import * as sharing from "./sharing.js";
 import * as autorun from "./autorun.js";
 import * as ads from "./ads.js";
 import * as errorlog from "./errorlog.js";
+import * as models from "./models.js";
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "web");
 const MAX_BODY = 15 * 1024 * 1024;
@@ -57,6 +58,9 @@ function gpc(req) {
   return true;
 }
 
+// The models each level uses now, plus what Automatic would pick, for the AI models panel in Advanced settings.
+const modelInfo = (s) => ({ ...models.resolve({ settings: s }), defaults: models.resolve({ settings: { ...s, model_choices: {} } }).levels });
+
 function doGet(req, res, u) {
   const q = Object.fromEntries(u.searchParams);
   const g = gpc(req);
@@ -82,7 +86,7 @@ function doGet(req, res, u) {
     case "/api/settings": {
       const s = store.publicSettings(store.loadSettings());
       return send(res, 200, { settings: s, missing: store.missingFields(s), statuses: store.STATUSES, outcomes: store.OUTCOMES,
-        sites: store.JOB_SITES, data_dir: store.paths.data, db: store.paths.db });
+        sites: store.JOB_SITES, data_dir: store.paths.data, db: store.paths.db, models: modelInfo(s) });
     }
     default: return send(res, 404, { error: "not found" });
   }
@@ -116,7 +120,7 @@ async function doPost(req, res, u) {
       // Consent changes go through /api/consent and /api/sharing only; integrity records are never editable.
       const { legal, sharing: _s, integrity, ...patch } = body;
       const s = store.saveSettings(patch);
-      return send(res, 200, { settings: store.publicSettings(s), missing: store.missingFields(s) });
+      return send(res, 200, { settings: store.publicSettings(s), missing: store.missingFields(s), models: modelInfo(s) });
     }
     case "/api/resume": {
       const s = store.saveResume(body.filename, Buffer.from(body.data_base64 || "", "base64"), body.text || "");
@@ -199,12 +203,19 @@ export function start() {
 }
 
 /** Opens a URL in the user's default browser without a shell. */
+/** Opens the URL in the user's browser. Resolves true once the launcher started, false if there is none (the URL is
+ * returned to the agent anyway). A missing launcher is an 'error' event, which must be handled or the process exits. */
 export function openBrowser(url) {
   const [cmd, args] = process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]]
     : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
-  try {
-    spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
-  } catch {
-    // no browser available; the URL is returned to the agent anyway
-  }
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+      child.once("spawn", () => resolve(true));
+      child.once("error", () => resolve(false));
+      child.unref();
+    } catch {
+      resolve(false);
+    }
+  });
 }

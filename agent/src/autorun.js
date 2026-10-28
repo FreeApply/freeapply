@@ -36,10 +36,11 @@ export function start() {
   store.run("DELETE FROM meta WHERE key=?", STOP);
   store.run("INSERT INTO runs (started_at, summary) VALUES (?, ?)", lock.started_at, `auto-run ${lock.run_id}`);
   return { go: true, run_id: lock.run_id, minutes, max_applications: s.autorun.max_applications ?? null, sites: sitesNow(s),
-    note: "Call freeapply_autorun with action check before each new job and stop when go is false; call finish at the end." };
+    note: "Pass this run_id to freeapply_clear_to_submit before every submit and stop when it returns stop_run; call " +
+      "freeapply_autorun with action finish at the end." };
 }
 
-/** Between jobs: may the run continue? */
+/** May the run continue? freeapply_clear_to_submit asks this before every submit of an unattended run. */
 export function check(runId) {
   const lock = readLock();
   if (!lock || lock.run_id !== runId) return { go: false, reason: "this run is not active (finished, stopped or replaced)" };

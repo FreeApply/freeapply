@@ -2,49 +2,118 @@
   "manifest_version": "0.2",
   "name": "freeapply",
   "display_name": "FreeApply",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies, and shows it all in a local dashboard.",
   "long_description": "FreeApply gives Claude the tools to find jobs that match your settings, apply on employer sites, and log every job and application on your computer. Its workflow is signed: any change to it locks the tools until the official version is restored. Your data stays on your computer except what you choose to share in Settings.",
-  "author": { "name": "MyBotsAI", "email": "mybotsai@gmail.com" },
+  "author": {
+    "name": "MyBotsAI",
+    "email": "mybotsai@gmail.com"
+  },
   "homepage": "https://www.mybotsai.com",
   "license": "MIT",
-  "privacy_policies": ["https://www.mybotsai.com/legal/privacy/"],
+  "privacy_policies": [
+    "https://www.mybotsai.com/legal/privacy/"
+  ],
   "server": {
     "type": "node",
     "entry_point": "src/main.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/src/main.js"],
+      "args": [
+        "${__dirname}/src/main.js"
+      ],
       "env": {}
     }
   },
   "tools": [
-    { "name": "freeapply_status", "description": "Install check: workflow integrity, Terms, setup and dashboard URL" },
-    { "name": "freeapply_open_dashboard", "description": "Open the local dashboard" },
-    { "name": "freeapply_workflow", "description": "The signed procedure for setup, applying or the reply check" },
-    { "name": "freeapply_get_settings", "description": "Read your profile, targets and preferences" },
-    { "name": "freeapply_update_settings", "description": "Save settings you gave" },
-    { "name": "freeapply_check_duplicate", "description": "Find jobs already tracked for a company or posting" },
-    { "name": "freeapply_add_job", "description": "Track a job before working on it" },
-    { "name": "freeapply_update_job", "description": "Record your side of an application: its status from found to applied" },
-    { "name": "freeapply_check_text", "description": "Truthfulness check for letters and answers" },
-    { "name": "freeapply_answers", "description": "Get your answers for a job, or save one for reuse" },
-    { "name": "freeapply_site_account", "description": "Whether you made an account on an employer site" },
-    { "name": "freeapply_set_outcome", "description": "Set the employer's outcome when there is no email to record" },
-    { "name": "freeapply_site_status", "description": "Report a job site signed you out or hit its daily limit" },
-    { "name": "freeapply_autorun", "description": "Start, check and finish unattended runs" },
-    { "name": "freeapply_throttle", "description": "Pace check and clearance before each submit" },
-    { "name": "freeapply_list_jobs", "description": "List tracked jobs" },
-    { "name": "freeapply_get_stats", "description": "Dashboard numbers" },
-    { "name": "freeapply_reply_check", "description": "Start or finish a Gmail reply check" },
-    { "name": "freeapply_record_reply", "description": "Record an employer email and update the job's outcome" },
-    { "name": "freeapply_save_resume", "description": "Store your resume's text and a summary of it" },
-    { "name": "freeapply_fetch_posting", "description": "Fetch and trim a job posting on your computer" },
-    { "name": "freeapply_shared_data", "description": "Show exactly what would be shared, or send it now" }
+    {
+      "name": "freeapply_status",
+      "description": "Check that FreeApply can run, get a task's signed procedure, the files to upload and which AI model does what"
+    },
+    {
+      "name": "freeapply_open_dashboard",
+      "description": "Open the local dashboard on a tab"
+    },
+    {
+      "name": "freeapply_get_settings",
+      "description": "Read the user's settings, all or just the sections a step needs"
+    },
+    {
+      "name": "freeapply_update_settings",
+      "description": "Save settings the user stated, the résumé text and profile, and the AI models scan"
+    },
+    {
+      "name": "freeapply_fetch_posting",
+      "description": "Fetch a job posting, its form questions and its ATS keywords compactly"
+    },
+    {
+      "name": "freeapply_claim_job",
+      "description": "Claim or skip a job, with the duplicate, job-site and pay-floor checks"
+    },
+    {
+      "name": "freeapply_check_text",
+      "description": "Check a cover letter or answer for unsupported claims; save a passing letter as a PDF"
+    },
+    {
+      "name": "freeapply_user_answers",
+      "description": "Get or save the user's own answers to form questions"
+    },
+    {
+      "name": "freeapply_find_site_account",
+      "description": "Find the user's account on an employer's careers site"
+    },
+    {
+      "name": "freeapply_clear_to_submit",
+      "description": "Get clearance for one submit (pace, daily cap, unattended-run budgets)"
+    },
+    {
+      "name": "freeapply_update_job",
+      "description": "Record a job's application status"
+    },
+    {
+      "name": "freeapply_report_site_problem",
+      "description": "Report a job site that signed the user out or hit its daily limit"
+    },
+    {
+      "name": "freeapply_autorun",
+      "description": "Start or finish an unattended run, or report its schedule"
+    },
+    {
+      "name": "freeapply_list_jobs",
+      "description": "List tracked jobs"
+    },
+    {
+      "name": "freeapply_job_stats",
+      "description": "Job-search statistics"
+    },
+    {
+      "name": "freeapply_reply_check",
+      "description": "Start or finish a Gmail reply check"
+    },
+    {
+      "name": "freeapply_record_outcome",
+      "description": "Record what an employer did, from an email or the user"
+    },
+    {
+      "name": "freeapply_shared_data",
+      "description": "Preview or send the data the user chose to share"
+    }
   ],
-  "keywords": ["jobs", "job-search", "applications", "dashboard", "gmail"],
+  "keywords": [
+    "jobs",
+    "job-search",
+    "applications",
+    "dashboard",
+    "gmail"
+  ],
   "compatibility": {
-    "platforms": ["win32", "darwin", "linux"],
-    "runtimes": { "node": ">=22.13.0" }
+    "platforms": [
+      "win32",
+      "darwin",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=22.13.0"
+    }
   }
 }

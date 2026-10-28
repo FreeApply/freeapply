@@ -382,6 +382,24 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
         <div class="field" data-key="eligibility.work_authorized"><label>Authorized to work here</label><select name="eligibility.work_authorized" data-bool><option value="">Choose…</option><option value="true">Yes</option><option value="false">No</option></select></div>
         <div class="field"><label>Needs visa sponsorship</label><select name="eligibility.needs_sponsorship" data-bool><option value="">Choose…</option><option value="false">No</option><option value="true">Yes</option></select></div>
       </div></div>
+      <div class="panel"><h3>Cover letters</h3>
+        <p class="count" style="margin:0 0 10px">How your AI assistant writes cover letters for you. It only says what your resume and your own words back up, and uses the skills each job asks for that you really have.</p>
+        <div class="fields">
+        <div class="field"><label>When to write one</label><select name="cover_letter.write">
+          <option value="when_slot">Whenever the form has a place for one</option><option value="when_required">Only when the form requires one</option></select></div>
+        <div class="field"><label>Tone</label><select name="cover_letter.tone">
+          <option value="professional">Professional</option><option value="warm">Warm and friendly</option>
+          <option value="enthusiastic">Enthusiastic</option><option value="direct">Short and to the point</option></select></div>
+        <div class="field"><label>Length</label><select name="cover_letter.length">
+          <option value="short">Short (120–180 words)</option><option value="standard">Standard (150–250 words)</option>
+          <option value="long">Long (250–380 words)</option></select></div>
+        <div class="field full"><label>What to highlight</label><textarea name="cover_letter.highlights" rows="2" placeholder="e.g. At my last job I cut ticket wait times in half."></textarea>
+          <span class="hint">In your own words. Your assistant may say this in your letters.</span></div>
+        <div class="field full"><label>Never mention</label><input name="cover_letter.avoid" placeholder="e.g. my gap year, my previous employer's name"></div>
+        <div class="field full"><label>Sign-off</label><textarea name="cover_letter.sign_off" rows="2" placeholder="Best regards,&#10;Alex Doe"></textarea>
+          <span class="hint">Leave empty for "Sincerely," and your name.</span></div>
+        </div>
+      </div>
       <div class="panel"><h3>Job sites</h3>
         <p class="count" style="margin:0 0 10px">Where FreeApply may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses. FreeApply never asks for or stores passwords.</p>
         <div class="sites" data-sites></div>
@@ -402,7 +420,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
     </div>
 
     <details class="panel fold adv" id="advanced" style="margin-top:14px">
-      <summary data-closed="Show ▾" data-open="Hide ▴"><h3>Advanced settings</h3><span class="count">Matching, pacing, auto-run budgets and Gmail details. The defaults work for most people.</span></summary>
+      <summary data-closed="Show ▾" data-open="Hide ▴"><h3>Advanced settings</h3><span class="count">Matching, pacing, auto-run budgets, Gmail details and AI models. The defaults work for most people.</span></summary>
       <div class="settings">
         <div class="panel"><h3>Matching</h3><div class="fields">
           <div class="field full"><label>Fields / industries</label><input name="targets.fields" data-list placeholder="e.g. healthcare, fintech, construction"></div>
@@ -435,6 +453,10 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
           <div class="field full"><label>Count "we received your application" emails</label><select name="gmail.count_acknowledgements" data-bool><option value="false">No, only real replies</option><option value="true">Yes</option></select>
             <span class="hint">Uses the Gmail connector in Claude; FreeApply sets up the schedule on first run.</span></div>
         </div></div>
+        <div class="panel" id="modelsPanel"><h3>AI models</h3>
+          <p class="count" id="mdInfo" style="margin:0 0 10px"></p>
+          <div class="fields" id="mdFields"></div>
+        </div>
       </div>
     </details>
     <div class="savebar"><span class="count" id="saveState"></span><button type="submit" class="btn green">Save settings</button></div>
@@ -725,9 +747,36 @@ function fillForm(root){
     fd.classList.toggle("missing", miss.has(k));
     const lab = fd.querySelector("label"); if (lab && fd.dataset.key && !lab.querySelector(".req")) lab.insertAdjacentHTML("beforeend", ` <span class="req">●</span>`); });
 }
+/* AI models (Advanced): which of the AI app's models does each kind of work. FreeApply checks the app's models at setup
+   and after updates and picks the best for each level; a choice here wins. A level with no match uses the app's own
+   model until the user chooses one. */
+const LEVEL_TEXT = { low: ["Searching and email", "Finding jobs, sorting employer emails, bookkeeping"],
+  mid: ["Filling in forms", "Application forms and short answers"], high: ["Cover letters", "Cover letters and long answers"] };
+const EFFORT_TEXT = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" };
+const modelText = r => !r || r.model === "current" ? "your AI app's own model" : r.model + (r.effort ? `, ${(EFFORT_TEXT[r.effort] || r.effort).toLowerCase()} effort` : "");
+function fillModels(){
+  const m = S.models; if (!m) return;
+  const app = esc(m.app || "Your AI app");
+  $("#mdInfo").innerHTML = !m.scanned_at ? "FreeApply checks which models your AI app offers the next time it starts a job-search session."
+    : !m.can_delegate ? `${app} does every step on the model you picked in it, so there is nothing to choose here. Checked ${esc(fmtDate(m.scanned_at))}.`
+    : `${app}, checked ${esc(fmtDate(m.scanned_at))}. <b>Automatic</b> uses the best model it offers for each kind of work.`;
+  $("#mdFields").innerHTML = !m.can_delegate ? "" : ["low", "mid", "high"].map(level => {
+    const [title, hint] = LEVEL_TEXT[level], auto = m.defaults?.[level], open = m.unfilled.includes(level);
+    const pickModel = m.available.length
+      ? `<select name="model_choices.${level}.model"><option value="">Automatic (${esc(modelText(auto))})</option>${m.available.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select>`
+      : `<input name="model_choices.${level}.model" placeholder="Model name, as your AI app calls it">`;
+    const pickEffort = m.efforts.length ? `<select name="model_choices.${level}.effort" title="Effort"><option value="">Automatic effort</option>${m.efforts.map(x => `<option value="${esc(x)}">${esc(EFFORT_TEXT[x] || x)}</option>`).join("")}</select>` : "";
+    return `<div class="field full"${open ? " data-open" : ""}><label>${esc(title)}</label><div style="display:flex;gap:8px;flex-wrap:wrap">${pickModel}${pickEffort}</div>
+      <span class="hint">${open ? "Choose a model: FreeApply doesn't know this app's models. Until you do, your AI app's own model does this." : `${esc(hint)}. Now: ${esc(modelText(m.levels[level]))}.`}</span></div>`;
+  }).join("");
+}
 function fillSettings(){
   const s = S.settings;
+  fillModels();
   fillForm($("#sform"));
+  // After fillForm: it resets the required-field marks, and a pick the app no longer offers shows as Automatic.
+  $$("#mdFields [data-open]").forEach(f => f.classList.add("missing"));
+  $$("#mdFields select").forEach(x => { if (x.selectedIndex < 0) x.value = ""; });
   const r = s.resume || {}; const f = (r.files || []).find(x => x.path === r.primary);
   $("#resumeInfo").innerHTML = f ? `✓ <b>${esc(f.name)}</b> · uploaded ${esc(fmtDate(f.uploaded_at))}` : "No resume uploaded yet";
   $("#wresume").innerHTML = $("#resumeInfo").innerHTML;
@@ -749,7 +798,7 @@ function readForm(root = $("#sform")){
   return p;
 }
 $("#sform").onsubmit = async e => { e.preventDefault();
-  try { const r = await api("/api/settings", readForm()); S.settings = r.settings; S.missing = r.missing; fillSettings(); load(true);
+  try { const r = await api("/api/settings", readForm()); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); load(true);
     toast(r.missing.length ? "Saved. A few required fields left." : "Settings saved. You're ready to go."); } catch (err) { toast(err.message, 1); } };
 const drop = $("#drop"), file = $("#resumeFile");
 drop.onclick = () => file.click();
@@ -851,7 +900,7 @@ function wizShow(i){
   $("#wizBar").style.width = `${Math.round(100 * (i + 1) / WSTEPS.length)}%`;
   $("#wBack").disabled = i === 0; $("#wNext").textContent = last ? "Go to dashboard" : "Next"; $("#wLater").hidden = last; $("#wMsg").textContent = "";
 }
-async function wizSave(patch){ const r = await api("/api/settings", patch); S.settings = r.settings; S.missing = r.missing; fillSettings(); fillForm($("#wform")); }
+async function wizSave(patch){ const r = await api("/api/settings", patch); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); fillForm($("#wform")); }
 $("#wBack").onclick = () => wizShow(Math.max(0, WI - 1));
 $("#wNext").onclick = async () => {
   const st = WSTEPS[WI], key = st.dataset.step;

@@ -6,11 +6,41 @@ import * as store from "./store.js";
 const UA = { "User-Agent": `FreeApply/${store.VERSION} (+local job-search assistant)` };
 const LIMIT = 2_000_000;
 
+// Public web pages only: a posting link (or a redirect from one) never reaches this computer or the local network,
+// such as the dashboard or a router's admin page.
+const PRIVATE = [/^localhost$/, /\.localhost$/, /^127\./, /^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./, /^169\.254\./,
+  /^0\./, /^\[::1?\]$/, /^\[f[cd][0-9a-f]{2}:/, /^\[fe80:/, /^\[::ffff:/];
+
+/** The posting's address, checked: http or https on a public host. Bad input is a plain error the agent can act on. */
+export function postingUrl(url) {
+  let u;
+  try {
+    u = new URL(String(url ?? "").trim());
+  } catch {
+    throw new Error(`not a web address: "${String(url ?? "").slice(0, 200)}"; pass the posting's full URL, starting with https://`);
+  }
+  if (!["http:", "https:"].includes(u.protocol)) throw new Error(`only http and https pages can be fetched, not ${u.protocol}`);
+  const host = u.hostname.toLowerCase();
+  if ((!host.includes(".") && !host.startsWith("[")) || PRIVATE.some((r) => r.test(host))) {
+    throw new Error(`${host} is on this computer or a local network; only public job postings can be fetched`);
+  }
+  return u;
+}
+
 async function get(url, asJson = true) {
-  const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(20000) });
-  if (!r.ok) throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
-  const text = (await r.text()).slice(0, LIMIT);
-  return asJson ? JSON.parse(text) : text;
+  let u = postingUrl(url);
+  for (let hops = 0; ; hops++) { // redirects are followed by hand, so each new address is checked too
+    const r = await fetch(u, { headers: UA, redirect: "manual", signal: AbortSignal.timeout(20000) });
+    const next = r.status >= 300 && r.status < 400 && r.headers.get("location");
+    if (next) {
+      if (hops >= 5) throw new Error(`too many redirects from ${u.host}`);
+      u = postingUrl(new URL(next, u).href);
+      continue;
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status} from ${u.host}`);
+    const text = (await r.text()).slice(0, LIMIT);
+    return asJson ? JSON.parse(text) : text;
+  }
 }
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…",
@@ -105,7 +135,7 @@ export function suggestedAnswers(questions, source) {
 }
 
 export async function fetchPosting(url, maxChars = 6000, source) {
-  const u = new URL(url);
+  const u = postingUrl(url);
   const host = u.host.toLowerCase();
   let d = null;
   try {
@@ -116,11 +146,14 @@ export async function fetchPosting(url, maxChars = 6000, source) {
     d = null; // fall back to the page text
   }
   if (!d) {
-    const page = await get(url, false);
+    const page = await get(u.href, false);
     const title = page.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     d = { ats: host, title: title ? unescape(title[1].trim()) : null, description: textOf(page), questions: [] };
   }
   const desc = d.description || "";
+  // The whole text stays available to the caller (for keywords) without going into the reply.
+  Object.defineProperty(d, "fullText", { value: `${d.title || ""}
+${desc}`, enumerable: false });
   d.description = desc.slice(0, maxChars) + (desc.length > maxChars ? "…" : "");
   d.description_chars = desc.length;
   d.suggested_answers = suggestedAnswers(d.questions, source);

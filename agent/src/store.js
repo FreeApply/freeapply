@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const VERSION = "1.0.1";
+export const VERSION = "1.0.2";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
@@ -80,7 +80,8 @@ CREATE TABLE IF NOT EXISTS site_accounts (
 `;
 // Columns added on top of the original schema (added in place to old databases).
 // account_url: for needs_account, the page where the user makes the account (jobs with the same one share a card).
-const EXTRA_JOB_COLUMNS = { source: "TEXT", outcome: "TEXT", outcome_at: "TEXT", external_id: "TEXT", account_url: "TEXT" };
+// keywords: the posting's ATS keywords from freeapply_fetch_posting, {matched, missing} (JSON), kept when the job is claimed.
+const EXTRA_JOB_COLUMNS = { source: "TEXT", outcome: "TEXT", outcome_at: "TEXT", external_id: "TEXT", account_url: "TEXT", keywords: "TEXT" };
 // prompt: the question in plain words for the user; help: a one-line hint. label stays the form's exact wording.
 const EXTRA_QUESTION_COLUMNS = { prompt: "TEXT", help: "TEXT" };
 
@@ -94,6 +95,10 @@ const DEFAULT_SETTINGS = {
     earliest_start: "Immediately", years_experience: null },
   // profile: structured summary the AI assistant extracts (headline, skills, titles, education, certifications).
   resume: { files: [], primary: "", text: "", profile: {} },
+  // How the user wants cover letters written. write: when_slot (whenever a form has a slot) or when_required; tone and
+  // length pick the style (length ranges in COVER_LENGTHS); highlights are the user's own words to lead with (they
+  // count as facts), avoid is what never to mention, sign_off the closing lines (empty: "Sincerely," and their name).
+  cover_letter: { write: "when_slot", tone: "professional", length: "standard", highlights: "", avoid: "", sign_off: "" },
   // sources: job sites from JOB_SITES the agent may use. signed_in: {site id: when the user confirmed they signed in
   // themselves in the browser the agent uses}. signed_out: {site id: when the agent found itself signed out}.
   // FreeApply never asks for or stores passwords.
@@ -107,6 +112,10 @@ const DEFAULT_SETTINGS = {
   custom_answers: {},
   gmail: { enabled: true, interval_hours: 4, action: "star", label_name: "Job Replies",
     count_acknowledgements: false, last_check: null, schedule_created: false },
+  // The models the AI app can hand a step to, as it reported them (freeapply_update_settings, re-scanned after updates),
+  // and the user's own pick per level in Advanced settings (empty: the signed catalog decides). See models.js.
+  models: { app: null, current: null, can_delegate: false, available: [], efforts: [], scanned_at: null, scanned_for: null },
+  model_choices: { low: { model: "", effort: "" }, mid: { model: "", effort: "" }, high: { model: "", effort: "" } },
   // Acceptance of the legal documents in web/legal: the versions accepted and the text fingerprint (sharing.js).
   legal: { terms_version: null, privacy_version: null, legal_hash: null, accepted_at: null, age_confirmed: false },
   // Each sharing choice is null until decided; nothing is sent while a choice is not true.
@@ -115,6 +124,9 @@ const DEFAULT_SETTINGS = {
     last_sync: null, last_sync_result: null },
   setup_complete: false,
 };
+
+/** A fresh copy of the default settings: every section and field FreeApply knows, with its type. */
+export const settingsDefaults = () => structuredClone(DEFAULT_SETTINGS);
 
 // Job sites the user can let the agent search and apply on. Sites with signin: the user signs in once, themselves,
 // in the browser the agent uses; the agent then works in that session and stops if the site signs them out.
@@ -198,10 +210,16 @@ function readJson(file) {
 /** Resolves the data folder, database and port: arguments, then environment, then ~/.freeapply/config.json. */
 export function init(opts = {}) {
   const home = (p) => (p ? path.resolve(String(p).replace(/^~(?=$|[\\/])/, os.homedir())) : null);
-  const data = home(opts.data || process.env.FREEAPPLY_DATA) || path.join(os.homedir(), ".freeapply");
+  const custom = home(opts.data || process.env.FREEAPPLY_DATA);
+  const data = custom || path.join(os.homedir(), ".freeapply");
   const config = readJson(path.join(data, "config.json")) || {};
+  // Files to upload to application forms live in a visible folder, so a browser's file-select window can reach them:
+  // ~/Documents/FreeApply for the normal data folder, or "documents" inside a custom one (tests, the dev copy).
+  const docsHome = path.join(os.homedir(), "Documents");
+  const documents = home(opts.documents || process.env.FREEAPPLY_DOCUMENTS || config.documents) ||
+    (!custom && fs.existsSync(docsHome) ? path.join(docsHome, "FreeApply") : path.join(data, "documents"));
   Object.assign(paths, {
-    data, settings: path.join(data, "settings.json"), resumes: path.join(data, "resumes"),
+    data, settings: path.join(data, "settings.json"), resumes: path.join(data, "resumes"), documents,
     db: home(opts.db || process.env.FREEAPPLY_DB || config.db) || path.join(data, "jobs.db"),
     port: Number(opts.port || process.env.FREEAPPLY_PORT || 7878),
   });
@@ -268,6 +286,24 @@ function writeSettings(s) {
   fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
   fs.renameSync(tmp, paths.settings);
   return s;
+}
+
+/** Cover-letter word ranges by the user's length choice; the signed rules' minimum and maximum still bound them. */
+export const COVER_LENGTHS = { short: [120, 180], standard: [150, 250], long: [250, 380] };
+
+/** The folder of files to upload, with a current copy of the user's primary résumé in it (the original sits in the
+ * hidden data folder, which file-select windows often don't show). */
+export function documentsInfo(s = loadSettings()) {
+  const dir = paths.documents;
+  let resume = null;
+  const src = s.resume.primary;
+  if (src && fs.existsSync(src)) {
+    fs.mkdirSync(dir, { recursive: true });
+    resume = path.join(dir, path.basename(src));
+    const st = fs.statSync(src);
+    if (!fs.existsSync(resume) || fs.statSync(resume).mtimeMs < st.mtimeMs || fs.statSync(resume).size !== st.size) fs.copyFileSync(src, resume);
+  }
+  return { dir, resume, cover_letters: path.join(dir, "Cover letters") };
 }
 
 export function saveResume(filename, data, text = "") {
@@ -395,6 +431,12 @@ export function setStatus(jobId, status, { note, method, confirmation, resumePat
   return { job_id: jobId, status };
 }
 
+/** Keeps the cover letter saved for a job with its application, so recording the submit needs no second copy of it. */
+export function setCoverLetter(jobId, file, text) {
+  run("INSERT INTO applications (job_id, cover_path, cover_text) VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET " +
+    "cover_path=excluded.cover_path, cover_text=excluded.cover_text", jobId, file, text);
+}
+
 /** Saves one reusable answer under the question's label, or removes it when the answer is empty. Saved answers fill
  * later forms and count as the user's own words in the truthfulness check. */
 export function saveAnswer(label, answer) {
@@ -429,6 +471,7 @@ export function deleteJob(jobId) {
 
 export function setOutcome(jobId, outcome) {
   if (outcome && !OUTCOMES[outcome]) throw new Error(`outcome must be one of ${Object.keys(OUTCOMES).sort().join(", ")}`);
+  if (!one("SELECT id FROM jobs WHERE id=?", jobId)) throw new Error(`no job ${jobId}; find its id with freeapply_list_jobs`);
   run("UPDATE jobs SET outcome=?, outcome_at=?, updated_at=? WHERE id=?", outcome || null, outcome ? now() : null, now(), jobId);
   return { job_id: jobId, outcome };
 }
@@ -437,6 +480,7 @@ export function setOutcome(jobId, outcome) {
 export function recordReply(r) {
   const kind = r.kind || "replied";
   if (!OUTCOMES[kind]) throw new Error(`kind must be one of ${Object.keys(OUTCOMES).sort().join(", ")}`);
+  if (r.job_id && !one("SELECT id FROM jobs WHERE id=?", r.job_id)) throw new Error(`no job ${r.job_id}; find its id with freeapply_list_jobs`);
   run("INSERT OR IGNORE INTO replies (job_id, company, gmail_message_id, gmail_thread_id, sender, subject, " +
     "received_at, kind, summary, mail_action, recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
     r.job_id, r.company, r.gmail_message_id, r.gmail_thread_id, r.sender, r.subject, r.received_at, kind, r.summary, r.mail_action, now());
@@ -445,8 +489,9 @@ export function recordReply(r) {
     if (cur && (OUTCOME_RANK[kind] ?? 0) >= (OUTCOME_RANK[cur.outcome || ""] ?? -1)) {
       run("UPDATE jobs SET outcome=?, outcome_at=?, updated_at=? WHERE id=?", kind, r.received_at || now(), now(), r.job_id);
     }
+    return { recorded: true, kind, job_id: r.job_id, outcome: one("SELECT outcome FROM jobs WHERE id=?", r.job_id).outcome };
   }
-  return { recorded: true, kind };
+  return { recorded: true, kind, job_id: null, outcome: null };
 }
 
 /** What the Gmail reply check needs: applied companies, the time window and the mail action. */
@@ -824,7 +869,8 @@ export function markAccount(jobId, emailUsed, note) {
 }
 
 export function siteAccount(domainOrUrl) {
-  const v = domainOrUrl || "";
+  const v = String(domainOrUrl || "").trim();
   const d = v.includes("/") ? domainOf(v) : v.toLowerCase().replace(/^www\./, "");
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) throw new Error(`"${v.slice(0, 200)}" is not a site: pass its domain, like careers.example.com, or any web address on it`);
   return one("SELECT * FROM site_accounts WHERE domain=?", d) || { domain: d, account: null };
 }

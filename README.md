@@ -7,7 +7,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.1** ([notes](release-notes/1.0.1.md)). The app and its legal documents share one version
+Current version: **1.0.2** ([notes](release-notes/1.0.2.md)). The app and its legal documents share one version
 number.
 
 ## What it does
@@ -91,16 +91,20 @@ linked in the footer. The **Needs you** tab collects what needs you, in plain wo
 | Flags | `--data <dir>`, `--db <file>`, `--port <n>`, `--skills-dir <dir>` (repeatable; skill files are kept equal to the signed workflow) |
 
 ## Tools
-22 tools, each with a title, annotations (read-only, destructive, idempotent) and a description of every parameter:
-`freeapply_status`, `freeapply_open_dashboard`, `freeapply_workflow` (the signed procedure for a task),
-`freeapply_get_settings`, `freeapply_update_settings`, `freeapply_save_resume` (résumé text and profile),
-`freeapply_fetch_posting` (fetches and trims postings on your computer to save tokens), `freeapply_check_duplicate`,
-`freeapply_add_job`, `freeapply_check_text` (truthfulness check), `freeapply_answers` (get a job's answers or save a
-reusable one), `freeapply_site_account`, `freeapply_throttle` (pace check before each submit), `freeapply_update_job`
-(your side: found to applied), `freeapply_site_status`, `freeapply_autorun` (unattended runs), `freeapply_list_jobs`,
-`freeapply_get_stats`, `freeapply_reply_check` (start or finish a Gmail check), `freeapply_record_reply` (an employer
-email), `freeapply_set_outcome` (the employer's response without an email), `freeapply_shared_data` (preview or send
+18 tools, each with a title, annotations (read-only, destructive, idempotent) and a description of every parameter:
+`freeapply_status` (can FreeApply run, plus the signed procedure for a task), `freeapply_open_dashboard`,
+`freeapply_get_settings` (all settings or just the sections a step needs), `freeapply_update_settings` (settings, the
+résumé text and profile, and the AI models scan that picks a model for each part of the work),
+`freeapply_fetch_posting` (fetches and trims postings on your computer to save tokens, with their ATS keywords), `freeapply_claim_job` (claim or
+skip a job, with the duplicate, job-site and pay-floor checks), `freeapply_check_text` (truthfulness check; saves a passing cover letter as a PDF),
+`freeapply_user_answers` (get a job's answers or save a reusable one), `freeapply_find_site_account`,
+`freeapply_clear_to_submit` (clearance before each submit, and the unattended run's budgets), `freeapply_update_job` (your
+side: found to applied), `freeapply_report_site_problem`, `freeapply_autorun` (start or finish unattended runs),
+`freeapply_list_jobs`, `freeapply_job_stats`, `freeapply_reply_check` (start or finish a Gmail check),
+`freeapply_record_outcome` (what an employer did, from an email or the user), `freeapply_shared_data` (preview or send
 shared data). Removing a job is a dashboard action only (Applications → Remove); the agent has no tool for it.
+Every call is checked against the tool's parameters first: a missing, unknown or wrongly typed parameter returns one
+error naming each problem, and nothing changes.
 
 Skills for Claude Code: `freeapply-setup`, `freeapply-apply`, `freeapply-replies`. Each points to its signed procedure.
 

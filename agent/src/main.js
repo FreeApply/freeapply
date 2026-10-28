@@ -16,6 +16,7 @@ import { TOOLS, callTool } from "./tools.js";
 import * as ads from "./ads.js";
 import * as updater from "./updater.js";
 import * as errorlog from "./errorlog.js";
+import * as models from "./models.js";
 
 const AGENT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROTOCOL = "2025-06-18";
@@ -66,6 +67,7 @@ async function handle(msg, ctx) {
   const b = ctx.guard.bundle;
   switch (method) {
     case "initialize":
+      models.setClient(params.clientInfo); // which AI app this is; a different app means a new model scan
       return { protocolVersion: params.protocolVersion || PROTOCOL,
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: { name: "freeapply", version: store.VERSION }, instructions: b ? b.instructions : LOCKED_INSTRUCTIONS };
@@ -120,6 +122,7 @@ async function main() {
   store.bootstrap();
   const guard = loadGuard(opts.skillDirs);
   const ctx = { guard, rules: () => guard.bundle?.rules || {} };
+  models.init({ rules: ctx.rules, workflow: () => guard.bundle?.version ?? null });
   const adKeys = () => readOr(path.join(AGENT, "keys", "ads.pub"), Buffer.alloc(0)).toString("utf8");
   ads.init(adKeys(), guard.bundle?.rules?.ad_link_hosts);
   const adCheck = () => ads.refresh().catch(() => {});
