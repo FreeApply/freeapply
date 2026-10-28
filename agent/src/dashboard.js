@@ -9,6 +9,7 @@ import * as store from "./store.js";
 import * as sharing from "./sharing.js";
 import * as autorun from "./autorun.js";
 import * as ads from "./ads.js";
+import * as errorlog from "./errorlog.js";
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "web");
 const MAX_BODY = 15 * 1024 * 1024;
@@ -71,6 +72,7 @@ function doGet(req, res, u) {
     case "/api/autorun": return send(res, 200, { ...autorun.status(), sites: store.siteReadiness() });
     case "/api/sponsor": return send(res, 200, { ad: ads.pick(q.slot || "overview") });
     case "/api/sharing/preview": return send(res, 200, sharing.preview());
+    case "/api/problems": return send(res, 200, sharing.errorReports());
     case "/":
     case "/index.html": return send(res, 200, fs.readFileSync(path.join(WEB, "index.html")), "text/html; charset=utf-8");
     case "/api/health": return send(res, 200, { app: "freeapply", version: store.VERSION, runtime: "node" });
@@ -107,6 +109,9 @@ async function doPost(req, res, u) {
     case "/api/issues/account": return send(res, 200, store.markAccount(Number(body.job_id), String(body.email || "").trim(), body.note));
     case "/api/sharing/sync": return send(res, 200, await sharing.sync(true));
     case "/api/sharing/delete": return send(res, 200, await sharing.deleteRemote());
+    // A problem report leaves this computer only here, with consent: true from the report's own checkbox.
+    case "/api/problems/send": return send(res, 200, await sharing.sendErrorReport(String(body.id || ""), body.consent === true));
+    case "/api/problems/dismiss": return send(res, 200, errorlog.remove(String(body.id || "")));
     case "/api/settings": {
       // Consent changes go through /api/consent and /api/sharing only; integrity records are never editable.
       const { legal, sharing: _s, integrity, ...patch } = body;
@@ -118,6 +123,9 @@ async function doPost(req, res, u) {
       return send(res, 200, { settings: store.publicSettings(s), missing: store.missingFields(s) });
     }
   }
+  // Removing a job is the user's call only: the agent has no tool for it.
+  const remove = u.pathname.match(/^\/api\/jobs\/(\d+)\/remove$/);
+  if (remove) return send(res, 200, store.deleteJob(Number(remove[1])));
   const job = u.pathname.match(/^\/api\/jobs\/(\d+)$/);
   if (job) {
     // The user's own changes from the dashboard: not subject to the agent's rules.
@@ -137,6 +145,7 @@ async function handle(req, res) {
     if (req.method === "POST") return await doPost(req, res, u);
     return send(res, 405, { error: "method not allowed" });
   } catch (e) {
+    if (errorlog.unexpected(e)) errorlog.record("dashboard", `${req.method} ${u.pathname.replace(/\d+/g, ":id")}`, e);
     return send(res, req.method === "GET" ? 500 : 400, { error: e.message });
   }
 }

@@ -109,6 +109,7 @@ td.num{font-family:var(--mono);text-align:right} td.mono{font-family:var(--mono)
 td .sub{color:var(--dim);font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 td select{background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:12px}
 .empty{padding:40px;text-align:center;color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .settings{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 @media (max-width:980px){.settings{grid-template-columns:1fr}}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -136,8 +137,6 @@ td select{background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:
   color:var(--text);box-shadow:0 0 22px rgba(52,245,160,.3);opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none;z-index:9}
 .toast.on{opacity:1;transform:none} .toast.err{border-color:var(--red);box-shadow:0 0 22px rgba(255,93,122,.3)}
 .scan{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px)}
-nav.tabs .sep{width:1px;background:var(--line);margin:8px 6px}
-nav.tabs button.legal{color:var(--dim);font-size:12px}
 .doc{max-width:860px;line-height:1.65}
 .doc h1{font-size:24px;margin:0 0 4px;background:linear-gradient(90deg,#d8b4fe,var(--green));-webkit-background-clip:text;background-clip:text;color:transparent}
 .doc h2{font-size:15px;margin:22px 0 6px;color:#d8b4fe;letter-spacing:.02em}
@@ -195,48 +194,77 @@ details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:10px;padding:10px;font:11.5px/1.5 var(--mono);color:#cfc7f2;white-space:pre-wrap;word-break:break-word}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin:8px 0} .kv span:nth-child(odd){color:var(--muted);font-family:var(--mono)}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* Problems (Settings → Data sharing): one card per report with its exact contents, a required consent box, Send and Dismiss. */
+.prob{margin-bottom:12px} .prob h4{margin:0 0 3px;font-size:15px}
+.prob .pmsg{margin:0 0 10px;font:12.5px/1.5 var(--mono);color:var(--text);word-break:break-word}
+.prob pre.preview{max-height:220px;margin:4px 0 6px}
+.prob :is(button,input,pre,h4):focus-visible,#probPanel>summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+nav.tabs .tabn{display:inline-block;min-width:16px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--amber);color:#140d2a;font:700 10px/16px var(--mono);text-align:center}
 .btn.red{border-color:rgba(255,93,122,.5);background:linear-gradient(180deg,rgba(255,93,122,.25),rgba(255,93,122,.08))}
 .icard{margin-bottom:12px}
 .icard .hd{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
 .icard .hd .t{flex:1;min-width:200px} .icard .hd b{font-size:15px} .icard .hd .count{display:block}
-.qrow{border-top:1px dashed rgba(168,85,247,.18);padding:10px 0}
-.qrow .ql{font-weight:600;margin-bottom:6px} .qrow .ql .req{color:var(--amber)}
-.qrow input[type=text],.qrow input[type=number],.qrow input[type=date],.qrow select,.qrow textarea{width:100%;background:rgba(8,6,18,.75);border:1px solid var(--line2);border-radius:10px;padding:8px 11px;outline:none}
-.qrow textarea{min-height:70px;resize:vertical}
-.qrow .opts{display:flex;flex-wrap:wrap;gap:8px}
-.qrow .opts label{display:flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
-.qrow .opts input{accent-color:var(--green)}
-.qrow .keep{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:6px}
-.qrow.done .ql::after{content:" ✓ answered";color:var(--green);font:600 11px var(--mono)}
+/* Needs you: one card per question (however many jobs ask it) or per site; the plain prompt first, the form's own
+   wording and FreeApply's notes only in Advanced view. */
+.qcard .qp{font-size:15px;font-weight:600;margin-bottom:3px}
+.qcard .qh{color:var(--muted);font-size:13px;margin-bottom:10px}
+.qcard .opt{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-left:8px}
+.qcard .ok{font:600 11px var(--mono);color:var(--green);margin-left:8px}
+.qcard.done{border-color:rgba(52,245,160,.35)}
+.qcard .qfor{font-size:12px;color:var(--dim);margin-top:10px} .qcard .qfor a{color:var(--muted)}
+.qcard .qform{font-size:12px;color:var(--dim);margin-top:4px}
+.qcard input[type=text],.qcard input[type=number],.qcard input[type=date],.qcard input[type=email],.qcard select,.qcard textarea{width:100%;max-width:560px;background:rgba(8,6,18,.75);border:1px solid var(--line2);border-radius:10px;padding:8px 11px;outline:none}
+.qcard textarea{min-height:70px;resize:vertical}
+.qcard input:focus,.qcard select:focus,.qcard textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(52,245,160,.15)}
+.qcard .opts{display:flex;flex-wrap:wrap;gap:8px}
+.qcard .opts label{display:flex;gap:6px;align-items:center;padding:7px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.qcard .opts label:has(input:checked){border-color:var(--green);background:rgba(52,245,160,.1)}
+.qcard .opts input{accent-color:var(--green)}
+.qcard .keep{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:8px}
+.qcard .email{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-width:560px}
+.qcard .email label{font-size:13px;color:var(--muted)}
 .list li a.issue{color:inherit} .list li a.issue:hover .badge{box-shadow:0 0 10px currentColor}
+/* Simple mode (default) hides everything marked .adv; Advanced shows it. Nothing is removed, only hidden. */
+body.simple .adv{display:none!important}
+.modeseg{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
+.modeseg button{background:transparent;border:0;color:var(--muted);padding:6px 12px;font:600 12px var(--sans);cursor:pointer}
+.modeseg button.on{background:linear-gradient(180deg,rgba(52,245,160,.28),rgba(22,199,132,.12));color:var(--text)}
+.nextstep{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;border-color:rgba(52,245,160,.45)}
+.nextstep .ico{font-size:22px}
+.nextstep .txt{flex:1;min-width:220px} .nextstep .txt b{display:block;font-size:15px;margin-bottom:2px} .nextstep .txt span{color:var(--muted)}
+.nextstep.warn{border-color:rgba(251,191,36,.55)}
+/* Page footer: the only place the agreements are linked from (Simple and Advanced alike). */
+footer.legalinks{display:flex;gap:6px 18px;flex-wrap:wrap;justify-content:center;margin-top:28px;padding-top:14px;
+  border-top:1px solid var(--line);font-size:12.5px;color:var(--dim)}
+footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--green)}
 </style>
 </head>
-<body>
+<body class="simple">
 <div class="scan"></div>
 <div class="wrap">
   <header>
     <div class="logo">
       <div class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06050c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l7-7 4 4 7-7"/><path d="M14 2h7v7"/><path d="M3 22h18"/></svg></div>
-      <div><h1>FREEAPPLY</h1><small id="sub">MISSION CONTROL</small></div>
+      <div><h1>FREEAPPLY</h1><small id="sub">YOUR JOB SEARCH</small></div>
     </div>
     <div class="spacer"></div>
     <span class="pill" id="setupPill">…</span>
     <span class="pill" id="mailPill">…</span>
+    <div class="modeseg" id="modeSeg" role="group" aria-label="View">
+      <button type="button" data-mode="simple" title="Just what you need day to day">Simple</button>
+      <button type="button" data-mode="advanced" title="Every number, column and setting">Advanced</button>
+    </div>
     <button class="btn" id="refresh" title="Refresh">↻ Refresh</button>
   </header>
 
   <nav class="tabs">
-    <button data-tab="overview" class="on">Overview</button>
-    <button data-tab="applications">Applications</button>
+    <button data-tab="overview" class="on">Home</button>
+    <button data-tab="applications">Jobs</button>
     <button data-tab="replies">Replies</button>
-    <button data-tab="issues">Issues<span class="dot" id="issDot" hidden></span></button>
-    <button data-tab="settings">Settings<span class="dot" id="setDot" hidden></span></button>
-    <span class="sep"></span>
-    <button data-tab="terms" class="legal">Terms</button>
-    <button data-tab="privacy" class="legal">Privacy</button>
-    <button data-tab="disclosures" class="legal">Disclosures</button>
-    <button data-tab="recruiters" class="legal">Recruiter Terms</button>
+    <button data-tab="issues">Needs you<span class="dot" id="issDot" hidden></span></button>
+    <button data-tab="settings">Settings<span class="dot" id="setDot" hidden></span><span class="tabn" id="pbTab" hidden></span></button>
   </nav>
+  <!-- The agreements open from the footer only, in both Simple and Advanced view. -->
   <section class="view" id="v-terms"><div class="panel doc" data-doc="terms"></div></section>
   <section class="view" id="v-privacy"><div class="panel doc" data-doc="privacy"></div></section>
   <section class="view" id="v-disclosures"><div class="panel doc" data-doc="disclosures"></div></section>
@@ -246,9 +274,10 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
   <section class="view on" id="v-overview">
     <div class="welcome" id="welcome">
       <h2>Welcome to FreeApply. Let's set you up.</h2>
-      <p>Add your resume and what you're looking for in <a href="#settings" data-go="settings">Settings</a>. The agent won't apply anywhere until it's done.</p>
+      <p>Add your resume and what you're looking for in <a href="#settings" data-go="settings">Settings</a>. FreeApply won't apply anywhere until that's done.</p>
     </div>
     <div class="welcome" id="siteWarn" style="border-color:rgba(251,191,36,.55)"></div>
+    <div class="panel nextstep" id="nextStep" hidden></div>
     <div class="kpis" id="kpis"></div>
     <div class="grid2">
       <div class="panel"><h3>Applications · last 30 days</h3><div id="chart"></div></div>
@@ -256,8 +285,8 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
     </div>
     <div class="grid3">
       <div class="panel"><h3>Top applied jobs</h3><ul class="list" id="topJobs"></ul></div>
-      <div class="panel"><h3>Top companies</h3><ul class="list" id="topCos"></ul></div>
-      <div class="panel"><h3>Status breakdown</h3><ul class="list" id="statusList"></ul></div>
+      <div class="panel adv"><h3>Top companies</h3><ul class="list" id="topCos"></ul></div>
+      <div class="panel adv"><h3>Status breakdown</h3><ul class="list" id="statusList"></ul></div>
     </div>
     <!-- Sponsored card: chosen on this computer from a signed, cached pack. No ad scripts ever run on this page. -->
     <aside class="panel sponsor" id="sponsor" aria-label="Sponsored" hidden></aside>
@@ -266,18 +295,18 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
   <!-- APPLICATIONS -->
   <section class="view" id="v-applications">
     <div class="toolbar">
-      <input class="search" id="q" placeholder="Search title, company, location…">
+      <input class="search" id="q" placeholder="Search jobs or companies…">
       <select id="fStatus"><option value="">All statuses</option></select>
-      <select id="fOutcome"><option value="">All outcomes</option><option value="__none">No response</option></select>
-      <select id="fMethod"><option value="">All methods</option></select>
+      <select id="fOutcome" class="adv"><option value="">All responses</option><option value="__none">No response</option></select>
+      <select id="fMethod" class="adv"><option value="">All methods</option></select>
       <span class="count" id="count"></span>
-      <button class="btn" id="csv">⇩ CSV</button>
+      <button class="btn adv" id="csv">⇩ CSV</button>
     </div>
     <div class="tablewrap"><table id="jobsTable">
       <thead><tr>
         <th data-k="submitted_at">Date</th><th data-k="company">Company</th><th data-k="title">Role</th>
-        <th data-k="location">Location</th><th data-k="pay_min">Pay</th><th data-k="fit_score">Fit</th>
-        <th data-k="status">Status</th><th data-k="outcome">Outcome</th><th data-k="method">Method</th><th data-k="reply_count">Mail</th>
+        <th data-k="location" class="adv">Location</th><th data-k="pay_min" class="adv">Pay</th><th data-k="fit_score" class="adv">Fit</th>
+        <th data-k="status">Status</th><th data-k="outcome">Response</th><th data-k="method" class="adv">Method</th><th data-k="reply_count" class="adv">Mail</th><th><span class="sr">Remove</span></th>
       </tr></thead>
       <tbody></tbody>
     </table></div>
@@ -289,7 +318,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
       <span class="count">Checked by the agent every <b id="ivl">4</b> h through your Gmail connector</span></div>
     <div class="tablewrap"><table id="repTable">
       <thead><tr><th data-k="received_at">Received</th><th data-k="company">Company</th><th data-k="kind">Type</th>
-        <th data-k="subject">Subject</th><th data-k="sender">From</th><th data-k="mail_action">Gmail</th></tr></thead>
+        <th data-k="subject">Subject</th><th data-k="sender" class="adv">From</th><th data-k="mail_action" class="adv">Gmail</th></tr></thead>
       <tbody></tbody>
     </table></div>
   </section>
@@ -297,12 +326,16 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
   <!-- ISSUES -->
   <section class="view" id="v-issues">
     <div class="seg" id="issSeg" style="margin-bottom:12px">
-      <button type="button" data-i="needs_info" class="on">Needs info <span id="cNI"></span></button>
-      <button type="button" data-i="needs_account">Needs account <span id="cNA"></span></button>
+      <button type="button" data-i="needs_info" class="on">Questions <span id="cNI"></span></button>
+      <button type="button" data-i="needs_account">Accounts to create <span id="cNA"></span></button>
       <button type="button" data-i="blocked">Blocked <span id="cBL"></span></button>
     </div>
-    <div id="iss-needs_info" class="isslist"></div>
+    <div id="iss-needs_info" class="isslist">
+      <div id="qList"></div>
+      <div class="savebar" id="qBar" hidden><span class="count" id="qState"></span><button type="button" class="btn green" id="qSave">Save answers</button></div>
+    </div>
     <div id="iss-needs_account" class="isslist" hidden>
+      <div id="acctList"></div>
       <div class="panel" style="margin-bottom:12px"><h3>Account sign-up helper</h3>
         <p class="count" style="margin:0 0 8px">Drag this button to your browser's bookmarks bar once. On an employer's sign-up page, click it to fill your name, email, phone and location. Let your browser or password manager create and save the password; FreeApply never stores passwords.</p>
         <a class="btn green" id="bookmarklet" href="#" title="Drag to your bookmarks bar">⚡ FreeApply Autofill</a>
@@ -314,7 +347,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
 
   <!-- SETTINGS -->
   <section class="view" id="v-settings">
-    <div class="welcome" id="welcome2"><h2>First-run setup</h2><p>Fields marked <b style="color:var(--amber)">●</b> are required before the agent applies anywhere. Works for any job or field.</p></div>
+    <div class="welcome" id="welcome2"><h2>First-run setup</h2><p>Fields marked <b style="color:var(--amber)">●</b> are required before FreeApply applies anywhere. Works for any job or field.</p></div>
     <form id="sform" autocomplete="off">
     <div class="settings">
       <div class="panel"><h3>Resume</h3>
@@ -350,25 +383,25 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
         <div class="field"><label>Needs visa sponsorship</label><select name="eligibility.needs_sponsorship" data-bool><option value="">Choose…</option><option value="false">No</option><option value="true">Yes</option></select></div>
       </div></div>
       <div class="panel"><h3>Job sites</h3>
-        <p class="count" style="margin:0 0 10px">Where the agent may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses. FreeApply never asks for or stores passwords.</p>
+        <p class="count" style="margin:0 0 10px">Where FreeApply may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses. FreeApply never asks for or stores passwords.</p>
         <div class="sites" data-sites></div>
-        <div class="fields" style="margin-top:10px">
+        <div class="fields adv" style="margin-top:10px">
           <div class="field full"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
         </div>
       </div>
-      <div class="panel"><h3>Automation</h3><div class="fields">
-        <div class="field full"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
+      <div class="panel"><h3>Email replies</h3><div class="fields">
+        <div class="field full adv"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
           <span class="hint">Runs while your AI app is open and stops on its own at the first hard stop. Budgets are under Advanced.</span>
           <div class="kv" id="arInfo"></div>
           <div class="btnrow"><button type="button" class="btn red sm" id="arStop" hidden>Stop the current run</button></div></div>
         <div class="field"><label>Check Gmail for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
-        <div class="field"><label>When a reply arrives</label><select name="gmail.action">
+        <div class="field adv"><label>When a reply arrives</label><select name="gmail.action">
           <option value="star">Star it</option><option value="label">Add to a label (folder)</option>
           <option value="star_and_label">Star and label</option><option value="none">Just track it</option></select></div>
       </div></div>
     </div>
 
-    <details class="panel fold" id="advanced" style="margin-top:14px">
+    <details class="panel fold adv" id="advanced" style="margin-top:14px">
       <summary data-closed="Show ▾" data-open="Hide ▴"><h3>Advanced settings</h3><span class="count">Matching, pacing, auto-run budgets and Gmail details. The defaults work for most people.</span></summary>
       <div class="settings">
         <div class="panel"><h3>Matching</h3><div class="fields">
@@ -400,7 +433,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
           <div class="field"><label>Check every (hours)</label><input name="gmail.interval_hours" type="number" min="1" max="48"></div>
           <div class="field"><label>Label name</label><input name="gmail.label_name"></div>
           <div class="field full"><label>Count "we received your application" emails</label><select name="gmail.count_acknowledgements" data-bool><option value="false">No, only real replies</option><option value="true">Yes</option></select>
-            <span class="hint">Uses the Gmail connector in Claude; the agent creates the schedule on first run.</span></div>
+            <span class="hint">Uses the Gmail connector in Claude; FreeApply sets up the schedule on first run.</span></div>
         </div></div>
       </div>
     </details>
@@ -430,7 +463,16 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
       </div>
       <pre class="preview" id="shOut" hidden></pre>
     </details>
+
+    <details class="panel fold" id="probPanel" style="margin-top:14px">
+      <summary id="pbSum" data-closed="Show ▾" data-open="Hide ▴"><h3>Problems · Reports you can send</h3><span class="count" id="pbSummary">Nothing to report</span></summary>
+      <p class="count" style="margin:0 0 10px">When something in FreeApply goes wrong, it is noted here so you can tell us about it. Nothing is sent on its own: a report leaves your computer only if you tick its box and press Send. Your name, email, phone, resume text, profile links and home-folder path are removed before a report is saved. Reports you send are deleted from our server after 90 days. <a href="#privacy">Privacy Policy</a></p>
+      <div id="pbList"><p class="count">No problems recorded. If something fails, it shows up here.</p></div>
+      <p class="count" id="pbStatus" role="status" aria-live="polite"></p>
+    </details>
   </section>
+
+  <footer class="legalinks"><span>Your agreements</span><a href="#terms" data-go="terms">Terms of Service</a><a href="#privacy" data-go="privacy">Privacy Policy</a><a href="#disclosures" data-go="disclosures">Disclosures</a><a href="#recruiters" data-go="recruiters">Recruiter Terms</a></footer>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -449,7 +491,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
         <div class="field"><label>Country</label><input name="profile.country"></div>
         <div class="field full"><label>LinkedIn URL</label><input name="profile.linkedin_url"></div>
       </div></section>
-      <section class="wstep" data-step="targets"><h3>What you're looking for</h3><p>The agent applies only to jobs that match these.</p><div class="fields">
+      <section class="wstep" data-step="targets"><h3>What you're looking for</h3><p>FreeApply applies only to jobs that match these.</p><div class="fields">
         <div class="field full" data-key="targets.desired_roles"><label>Desired roles</label><input name="targets.desired_roles" data-list placeholder="e.g. Registered Nurse, Data Analyst, Electrician"><span class="hint">Comma separated</span></div>
         <div class="field full" data-key="targets.locations"><label>Locations</label><input name="targets.locations" data-list placeholder="e.g. Denver CO, Remote US"></div>
         <div class="field full"><label>Work modes</label><div class="checks" data-checks="targets.work_modes">
@@ -462,7 +504,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
           <div class="field full"><label>Exclude keywords</label><input name="targets.exclude_keywords" data-list placeholder="e.g. commission only, unpaid"></div>
         </div></details>
       </section>
-      <section class="wstep" data-step="eligibility"><h3>Eligibility</h3><p>Answers forms ask about. The agent never guesses them.</p><div class="fields">
+      <section class="wstep" data-step="eligibility"><h3>Eligibility</h3><p>Answers forms ask about. FreeApply never guesses them.</p><div class="fields">
         <div class="field" data-key="eligibility.work_authorized"><label>Authorized to work here</label><select name="eligibility.work_authorized" data-bool><option value="">Choose…</option><option value="true">Yes</option><option value="false">No</option></select></div>
         <div class="field"><label>Needs visa sponsorship</label><select name="eligibility.needs_sponsorship" data-bool><option value="">Choose…</option><option value="false">No</option><option value="true">Yes</option></select></div>
       </div>
@@ -472,14 +514,14 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
           <div class="field"><label>Years of experience</label><input name="eligibility.years_experience" type="number" min="0" step="0.5"></div>
         </div></details>
       </section>
-      <section class="wstep" data-step="resume"><h3>Your resume</h3><p>The agent claims only what your resume, your settings and your own answers say.</p>
+      <section class="wstep" data-step="resume"><h3>Your resume</h3><p>FreeApply claims only what your resume, your settings and your own answers say.</p>
         <div class="field full" data-key="resume.primary"><div class="drop" id="wdrop">
           <div style="font-size:22px">⇪</div><div><b>Drop your resume here</b> or click to choose</div>
           <div class="hint">PDF, DOCX, TXT or MD · stored only on this computer</div>
           <input type="file" id="wfile" accept=".pdf,.docx,.doc,.txt,.md,.rtf" hidden></div>
           <div class="hint" id="wresume"></div></div>
       </section>
-      <section class="wstep" data-step="sites"><h3>Job sites</h3><p>Choose where the agent may search and apply for you. For sites with an account, open the site and sign in yourself in the browser your AI assistant uses, then tick "I'm signed in". FreeApply never asks for or stores passwords. If a site signs you out, the agent keeps going on your other sites and asks you to sign in again.</p>
+      <section class="wstep" data-step="sites"><h3>Job sites</h3><p>Choose where FreeApply may search and apply for you. For sites with an account, open the site and sign in yourself in the browser your AI assistant uses, then tick "I'm signed in". FreeApply never asks for or stores passwords. If a site signs you out, FreeApply keeps going on your other sites and asks you to sign in again.</p>
         <div class="sites" data-sites></div>
         <div class="fields" style="margin-top:12px">
           <div class="field"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
@@ -487,7 +529,7 @@ pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px
             <span class="hint">Runs while your AI app is open, until a hard stop. Budgets are in Settings → Auto-run.</span></div>
         </div>
       </section>
-      <section class="wstep" data-step="done"><h3>You're set</h3><p>Ask your AI assistant to "find and apply to jobs". You can change anything later in Settings, and the Issues tab lists anything the agent needs from you.</p></section>
+      <section class="wstep" data-step="done"><h3>You're set</h3><p>Ask your AI assistant to "find and apply to jobs". You can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
     </form>
     <div class="btnrow"><button type="button" class="btn" id="wBack">Back</button><span style="flex:1"></span>
       <button type="button" class="btn" id="wLater">Finish later</button><button type="button" class="btn green" id="wNext">Next</button></div>
@@ -533,6 +575,37 @@ const fmtDate = s => s ? s.slice(0,10) : "—";
 const ago = s => { if (!s) return "never"; const m = (Date.now() - new Date(s)) / 6e4; return m < 60 ? Math.round(m)+"m ago" : m < 1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
 let S = {settings:null, statuses:{}, outcomes:{}, missing:[]}, JOBS = [], REPLIES = [], sortJ = {k:"submitted_at", d:-1}, sortR = {k:"received_at", d:-1};
 
+/* plain words for status codes */
+const STATUS_WORDS = {found: "Found", ready: "Ready to send", applied: "Applied", skipped: "Skipped", needs_info: "Needs your answer",
+  needs_account: "Needs an account", blocked: "Blocked", failed: "Failed"};
+const OUTCOME_WORDS = {acknowledged: "Got an auto-reply", replied: "Replied", assessment: "Assessment", interview: "Interview",
+  rejected: "Rejected", offer: "Offer", withdrawn: "Withdrawn"};
+const statusWord = k => STATUS_WORDS[k] || String(k || "").replace(/_/g, " ");
+
+/* Simple / Advanced view. Simple (the default) hides what is marked .adv; the choice is remembered in this browser. */
+const MODE_KEY = "freeapply.view";
+function setMode(m){
+  m = m === "advanced" ? "advanced" : "simple";
+  document.body.classList.toggle("simple", m === "simple");
+  $$("#modeSeg button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+  try { localStorage.setItem(MODE_KEY, m); } catch {}
+}
+$$("#modeSeg button").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+setMode((() => { try { return localStorage.getItem(MODE_KEY); } catch { return null; } })());
+
+/* the one thing to do next, in plain words */
+function renderNextStep(st){
+  const box = $("#nextStep");
+  let ico = "✓", title = "You're all set.", text = "Ask your AI app: \"Find me jobs and apply.\" New applications show up here.", go = "", label = "", warn = false;
+  if (!st.setup_complete) { ico = "①"; title = "Finish setting up"; text = "Add your resume and what you're looking for. It takes about 5 minutes."; go = "settings"; label = "Open Settings"; warn = true; }
+  else if (st.needs_you) { ico = "!"; title = `${st.needs_you} job${st.needs_you == 1 ? " needs" : "s need"} you`; text = "Answer a question or create an account, then FreeApply continues."; go = "issues"; label = "See what's needed"; warn = true; }
+  else if (st.interviews) { ico = "★"; title = `${st.interviews} interview${st.interviews == 1 ? "" : "s"}`; text = "Check Replies for the employer's emails and next steps."; go = "replies"; label = "Open Replies"; }
+  box.className = "panel nextstep" + (warn ? " warn" : "");
+  box.innerHTML = `<div class="ico">${ico}</div><div class="txt"><b>${esc(title)}</b><span>${esc(text)}</span></div>` +
+    (go ? `<button type="button" class="btn green" data-go="${go}">${esc(label)}</button>` : "");
+  box.hidden = false;
+}
+
 /* tabs */
 function show(tab){ tab = tab || "overview";
   $$("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
@@ -547,13 +620,14 @@ function kpi(l, v, s, cls){ return `<div class="panel kpi ${cls||""}"><div class
 function renderStats(st){
   $("#kpis").innerHTML =
     kpi("Applied", st.applied, `${st.applied_today} today · ${st.applied_7d} this week`, "g") +
-    kpi("Responses", st.responded, `${st.acknowledged} auto-acknowledged`, "p") +
-    kpi("Response rate", st.response_rate + "%", "real replies / applied", "p") +
+    kpi("Replies", st.responded, `${st.acknowledged} automatic "we got it" emails`, "p") +
+    kpi("Response rate", st.response_rate + "%", "real replies / applied", "p adv") +
     kpi("Interviews", st.interviews, `${st.offers} offer${st.offers==1?"":"s"}`, "g") +
-    kpi("Rejections", st.rejections, "closed loops") +
-    kpi("Needs you", st.needs_you, "info, account or verification", st.needs_you ? "a" : "") +
-    kpi("Queued", st.queued, `${st.tracked} jobs tracked`) +
-    kpi("Avg fit", st.avg_fit ?? "—", "of applied jobs");
+    kpi("Rejections", st.rejections, "closed loops", "adv") +
+    kpi("Needs you", st.needs_you, st.needs_you ? "questions or accounts: see Needs you" : "nothing right now", st.needs_you ? "a" : "") +
+    kpi("Queued", st.queued, `${st.tracked} jobs tracked`, "adv") +
+    kpi("Avg fit", st.avg_fit ?? "—", "of applied jobs", "adv");
+  renderNextStep(st);
   // 30-day bars
   const d = st.daily, W = 640, H = 170, pad = 22, max = Math.max(1, ...d.map(x => x.count)), bw = (W - pad*2) / d.length;
   let bars = d.map((x,i) => { const h = (H - 40) * x.count / max, y = H - 22 - h;
@@ -572,11 +646,11 @@ function renderStats(st){
   $("#topCos").innerHTML = st.top_companies.length ? st.top_companies.map(c => `<li><div class="t"><b>${esc(c.company)}</b><div class="hbar"><i style="width:${100*c.n/cm}%"></i></div></div><span class="count">${c.n}</span></li>`).join("") : `<li class="empty">—</li>`;
   const ss = Object.entries(st.by_status).sort((a,b) => b[1]-a[1]);
   const ISS = ["needs_info", "needs_account", "blocked"];
-  $("#statusList").innerHTML = ss.map(([k,n]) => { const b = `<span class="badge b-${esc(k)}">${esc(k.replace("_"," "))}</span>`;
+  $("#statusList").innerHTML = ss.map(([k,n]) => { const b = `<span class="badge b-${esc(k)}">${esc(statusWord(k))}</span>`;
     return `<li><div class="t">${ISS.includes(k) ? `<a class="issue" href="#issues" data-iss="${k}" title="Resolve these">${b} <span class="count">→ resolve</span></a>` : b}</div><span class="count">${n}</span></li>`; }).join("") || `<li class="empty">—</li>`;
-  $("#setupPill").textContent = st.setup_complete ? "● SETUP COMPLETE" : "● SETUP NEEDED";
+  $("#setupPill").textContent = st.setup_complete ? "● Ready" : "● Setup needed";
   $("#setupPill").className = "pill " + (st.setup_complete ? "ok" : "warn");
-  $("#mailPill").textContent = "✉ CHECKED " + ago(st.last_reply_check).toUpperCase();
+  $("#mailPill").textContent = "✉ Replies checked " + ago(st.last_reply_check);
   $("#welcome").style.display = st.setup_complete ? "none" : "block";
 }
 
@@ -591,25 +665,34 @@ function renderJobs(){
     (!q || [r.title, r.company, r.location, r.status_note].join(" ").toLowerCase().includes(q)));
   rows.sort(sorter(sortJ));
   $("#count").textContent = `${rows.length} of ${JOBS.length}`;
-  const outOpts = sel => `<option value="">—</option>` + Object.keys(S.outcomes).map(o => `<option ${o===sel?"selected":""}>${o}</option>`).join("");
+  const outOpts = sel => `<option value="">—</option>` + Object.keys(S.outcomes).map(o => `<option value="${o}" ${o===sel?"selected":""}>${esc(OUTCOME_WORDS[o] || o)}</option>`).join("");
   $("#jobsTable tbody").innerHTML = rows.length ? rows.map(r => `<tr>
     <td class="mono">${fmtDate(r.submitted_at || r.updated_at)}</td>
     <td><b>${esc(r.company)}</b></td>
     <td>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)}${r.status_note ? `<div class="sub" title="${esc(r.status_note)}">${esc(r.status_note)}</div>` : ""}</td>
-    <td>${esc(r.location || "")}${r.work_mode ? `<div class="sub">${esc(r.work_mode)}</div>` : ""}</td>
-    <td class="mono">${esc(r.pay_text || "")}</td>
-    <td class="num">${r.fit_score ?? ""}</td>
-    <td><span class="badge b-${esc(r.status)}">${esc((r.status||"").replace("_"," "))}</span></td>
+    <td class="adv">${esc(r.location || "")}${r.work_mode ? `<div class="sub">${esc(r.work_mode)}</div>` : ""}</td>
+    <td class="mono adv">${esc(r.pay_text || "")}</td>
+    <td class="num adv">${r.fit_score ?? ""}</td>
+    <td><span class="badge b-${esc(r.status)}">${esc(statusWord(r.status))}</span></td>
     <td><select data-id="${r.id}" class="outSel">${outOpts(r.outcome)}</select></td>
-    <td class="mono">${esc(r.method || "")}</td>
-    <td class="num">${r.reply_count || ""}</td></tr>`).join("") : `<tr><td colspan="10" class="empty">No jobs match</td></tr>`;
-  $$("#jobsTable th").forEach(th => th.classList.toggle("sorted", th.dataset.k === sortJ.k));
+    <td class="mono adv">${esc(r.method || "")}</td>
+    <td class="num adv">${r.reply_count || ""}</td>
+    <td><button type="button" class="btn red sm" data-remove="${r.id}" title="Remove this job from FreeApply">Remove</button></td></tr>`).join("") : `<tr><td colspan="11" class="empty">No jobs match</td></tr>`;
+  $$("#jobsTable th[data-k]").forEach(th => th.classList.toggle("sorted", th.dataset.k === sortJ.k));
 }
-$$("#jobsTable th").forEach(th => th.onclick = () => { sortJ = {k: th.dataset.k, d: sortJ.k === th.dataset.k ? -sortJ.d : -1}; renderJobs(); });
+$$("#jobsTable th[data-k]").forEach(th => th.onclick = () => { sortJ = {k: th.dataset.k, d: sortJ.k === th.dataset.k ? -sortJ.d : -1}; renderJobs(); });
 ["#q", "#fStatus", "#fOutcome", "#fMethod"].forEach(s => $(s).addEventListener("input", renderJobs));
 $("#jobsTable").addEventListener("change", async e => {
   if (!e.target.classList.contains("outSel")) return;
   try { await api(`/api/jobs/${e.target.dataset.id}`, {outcome: e.target.value}); toast("Outcome saved"); load(); } catch (err) { toast(err.message, 1); } });
+// Removing a job is the user's decision only (the agent has no tool for it), and it cannot be undone.
+$("#jobsTable").addEventListener("click", async e => {
+  const b = e.target.closest("[data-remove]"); if (!b) return;
+  const j = JOBS.find(r => String(r.id) === b.dataset.remove);
+  if (!confirm(`Remove "${j ? `${j.title} at ${j.company}` : "this job"}" from FreeApply?
+
+Its status, notes, form answers and recorded emails are deleted. This cannot be undone. (The job itself and anything already sent to the employer are not affected.)`)) return;
+  try { await api(`/api/jobs/${b.dataset.remove}/remove`, {}); toast("Job removed"); load(true); } catch (err) { toast(err.message, 1); } });
 $("#csv").onclick = () => {
   const cols = ["id","submitted_at","company","title","location","work_mode","pay_text","fit_score","status","outcome","method","url","status_note"];
   const csv = [cols.join(",")].concat(JOBS.map(r => cols.map(c => `"${String(r[c] ?? "").replace(/"/g,'""')}"`).join(","))).join("\n");
@@ -622,7 +705,7 @@ function renderReplies(){
   $("#repTable tbody").innerHTML = rows.length ? rows.map(r => `<tr><td class="mono">${esc((r.received_at||r.recorded_at||"").slice(0,16).replace("T"," "))}</td>
     <td><b>${esc(r.company||"")}</b>${r.title ? `<div class="sub">${esc(r.title)}</div>` : ""}</td>
     <td><span class="badge b-${esc(r.kind)}">${esc(r.kind)}</span></td><td>${esc(r.subject||"")}${r.summary ? `<div class="sub">${esc(r.summary)}</div>` : ""}</td>
-    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. The agent checks Gmail on its schedule.</td></tr>`;
+    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks Gmail on its schedule.</td></tr>`;
 }
 $$("#repTable th").forEach(th => th.onclick = () => { sortR = {k: th.dataset.k, d: sortR.k === th.dataset.k ? -sortR.d : -1}; renderReplies(); });
 
@@ -703,7 +786,7 @@ function fillSites(box){
   box.querySelectorAll("[data-site]").forEach(i => i.checked = (a.sources || []).includes(i.dataset.site));
   box.querySelectorAll("[data-signed]").forEach(i => i.checked = !!a.signed_in?.[i.dataset.signed] && !a.signed_out?.[i.dataset.signed]);
   box.querySelectorAll("[data-warn]").forEach(w => { const id = w.dataset.warn, out = a.signed_out?.[id], until = a.site_paused_until?.[id];
-    const msg = out ? `Signed out ${ago(out)}. Sign in again on the site, then tick "I'm signed in". The agent is using your other sites meanwhile.`
+    const msg = out ? `Signed out ${ago(out)}. Sign in again on the site, then tick "I'm signed in". FreeApply keeps using your other sites meanwhile.`
       : until && until > t ? `Paused until ${fmtDate(until)}: the site's own daily limit was reached.` : "";
     w.textContent = msg; w.hidden = !msg; });
   box.querySelectorAll("[data-site]").forEach(i => siteRow(box, i.dataset.site));
@@ -726,7 +809,7 @@ async function loadAutorun(){
     $("#arStop").hidden = !r || r.stop_requested;
     const out = (a.sites || []).filter(x => x.signed_out_at);
     $("#siteWarn").style.display = out.length ? "block" : "none";
-    $("#siteWarn").innerHTML = out.length ? `<b>${esc(out.map(x => x.name).join(", "))} signed you out.</b> Sign in again on the site, then tick "I'm signed in" in <a href="#settings" data-go="settings">Settings → Job sites</a>. The agent keeps applying on your other sites meanwhile.` : "";
+    $("#siteWarn").innerHTML = out.length ? `<b>${esc(out.map(x => x.name).join(", "))} signed you out.</b> Sign in again on the site, then tick "I'm signed in" in <a href="#settings" data-go="settings">Settings → Job sites</a>. FreeApply keeps applying on your other sites meanwhile.` : "";
   } catch { /* older dashboard server without auto-run */ }
 }
 /* sponsored card */
@@ -792,62 +875,109 @@ wdrop.addEventListener("drop", e => e.dataTransfer.files[0] && upload(e.dataTran
 wfile.onchange = () => wfile.files[0] && upload(wfile.files[0]);
 
 /* issues */
-let ISSUES = {needs_info:[], needs_account:[], blocked:[]};
+let ISSUES = {needs_info:[], needs_account:[], blocked:[], questions:[], accounts:[]};
+let issDirty = false; // unsaved answers on the Needs you tab: the refresh every minute leaves them alone
 function issueSeg(k){ $$("#issSeg button").forEach(b => b.classList.toggle("on", b.dataset.i === k)); $$(".isslist").forEach(d => d.hidden = d.id !== "iss-" + k); }
 $("#issSeg").onclick = e => { const b = e.target.closest("button"); if (b) issueSeg(b.dataset.i); };
 document.addEventListener("click", e => { const a = e.target.closest("a[data-iss]"); if (a) { e.preventDefault(); show("issues"); issueSeg(a.dataset.iss); } });
 const jobHead = j => `<div class="hd"><div class="t"><b>${esc(j.title)}</b><span class="count">${esc(j.company)}${j.location ? " · " + esc(j.location) : ""}${j.pay_text ? " · " + esc(j.pay_text) : ""}</span></div>
   ${(j.apply_url || j.url) ? `<a class="btn" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open posting ↗</a>` : ""}</div>`;
-function qInput(q){
-  const name = `q${q.id}`, v = q.answer ?? q.suggested ?? "";
+const jobLinks = jobs => jobs.map(j => j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.company)} · ${esc(j.title)}</a>` : `${esc(j.company)} · ${esc(j.title)}`).join(", ");
+/* Answer kinds: open-ended (a box to type in), pick one (buttons, or a dropdown for more than 5 options), pick several. */
+function qInput(q, name){
+  const v = q.answer ?? q.suggested ?? "";
   if (q.qtype === "yesno") q = {...q, qtype: "choice", options: ["Yes", "No"]};
   if (q.qtype === "choice" && q.options) return q.options.length > 5
     ? `<select name="${name}"><option value="">Choose…</option>${q.options.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("")}</select>`
     : `<div class="opts">${q.options.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${o==v?"checked":""}>${esc(o)}</label>`).join("")}</div>`;
   if (q.qtype === "multi" && q.options) { let cur = []; try { cur = JSON.parse(v || "[]"); } catch {}
-    return `<div class="opts">${q.options.map(o => `<label><input type="checkbox" name="${name}" value="${esc(o)}" ${cur.includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div>`; }
-  if (q.qtype === "textarea") return `<textarea name="${name}">${esc(v)}</textarea>`;
-  return `<input type="${q.qtype === "number" ? "number" : q.qtype === "date" ? "date" : "text"}" name="${name}" value="${esc(v)}">`;
+    return `<div class="count" style="margin-bottom:6px">Choose all that apply</div><div class="opts">${q.options.map(o => `<label><input type="checkbox" name="${name}" value="${esc(o)}" ${cur.includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div>`; }
+  if (q.qtype === "textarea") return `<textarea name="${name}" placeholder="Type your answer">${esc(v)}</textarea>`;
+  return `<input type="${q.qtype === "number" ? "number" : q.qtype === "date" ? "date" : "text"}" name="${name}" value="${esc(v)}" placeholder="Type your answer">`;
 }
-function qValue(card, q){
-  if (q.qtype === "multi") return [...card.querySelectorAll(`input[name="q${q.id}"]:checked`)].map(i => i.value);
-  const r = card.querySelector(`input[name="q${q.id}"]:checked`); if (r) return r.value;
-  const el = card.querySelector(`[name="q${q.id}"]`); return el && el.type !== "radio" ? el.value.trim() : "";
+function qValue(card, q, name){
+  if (q.qtype === "multi" && q.options) return [...card.querySelectorAll(`input[name="${name}"]:checked`)].map(i => i.value);
+  const r = card.querySelector(`input[name="${name}"]:checked`); if (r) return r.value;
+  const el = card.querySelector(`[name="${name}"]`); return el && el.type !== "radio" ? el.value.trim() : "";
 }
+// What stopped a blocked job, in plain words (the kind comes from FreeApply's note; the note itself is in Advanced view).
+const BLOCKED = {
+  captcha: ["The site asked to prove you're a person", "Sites use these checks, like \"I'm not a robot\" puzzles, to stop automated tools. FreeApply doesn't try to get past them."],
+  code: ["The site sent you a code", "The site wants a code it sent to your email or phone. FreeApply only reads your email when you've allowed it to."],
+  warning: ["The site warned about automated use", "FreeApply stopped there to keep your account on that site safe."],
+  other: ["FreeApply couldn't finish this application", "Something on the site needed a person to look at it."],
+};
+const stuckJobs = () => [...ISSUES.blocked, ...ISSUES.needs_info.filter(j => !j.questions.length).map(j => ({...j, kind: "other"}))];
 function renderIssues(){
-  const I = ISSUES, n = k => I[k].length;
-  $("#cNI").textContent = `(${n("needs_info")})`; $("#cNA").textContent = `(${n("needs_account")})`; $("#cBL").textContent = `(${n("blocked")})`;
-  $("#issDot").hidden = !(n("needs_info") + n("needs_account") + n("blocked"));
-  $("#iss-needs_info").innerHTML = I.needs_info.length ? I.needs_info.map(j => `<div class="panel icard" data-job="${j.id}">${jobHead(j)}
-    ${j.questions.map(q => `<div class="qrow ${q.answer ? "done" : ""}"><div class="ql">${esc(q.label)}${q.required ? ' <span class="req">●</span>' : ""}</div>${qInput(q)}
-      <label class="keep"><input type="checkbox" data-keep="${q.id}" ${q.suggested ? "checked" : ""}> Reuse this answer on future applications</label>${q.suggested && !q.answer ? '<div class="count">Filled from an answer you saved earlier</div>' : ""}</div>`).join("")}
-    <div class="btnrow"><button type="button" class="btn green" data-save="${j.id}">Save answers and re-queue</button></div></div>`).join("")
-    : `<div class="panel empty">No open questions. The agent adds them here when a form asks something your settings don't answer.</div>`;
-  const acct = $("#iss-needs_account"), keep = acct.firstElementChild;
-  acct.innerHTML = ""; acct.appendChild(keep);
-  acct.insertAdjacentHTML("beforeend", I.needs_account.length ? I.needs_account.map(j => `<div class="panel icard">${jobHead(j)}
-    <div class="kv"><span>Site</span><span class="mono">${esc(j.domain || "")}</span><span>Why</span><span>${esc(j.status_note || "The employer's site requires an account")}</span>
-    ${j.account ? `<span>Account</span><span style="color:var(--green)">created ${esc(fmtDate(j.account.created_at))} with ${esc(j.account.email_used)}</span>` : ""}</div>
-    <div class="btnrow"><a class="btn" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open sign-up ↗</a>
-      <button type="button" class="btn green" data-acct="${j.id}">I created an account</button></div></div>`).join("")
-    : `<div class="panel empty">No jobs are waiting on an account.</div>`);
-  $("#iss-blocked").innerHTML = I.blocked.length ? I.blocked.map(j => `<div class="panel icard">${jobHead(j)}
-    <div class="kv"><span>Reason</span><span>${esc(j.status_note || "Verification or CAPTCHA")}</span></div>
-    <div class="btnrow"><button type="button" class="btn green" data-done="${j.id}">I applied myself</button><button type="button" class="btn" data-retry="${j.id}">Re-queue for the agent</button></div></div>`).join("")
-    : `<div class="panel empty">Nothing blocked.</div>`;
+  const I = ISSUES, open = (I.questions || []).filter(g => !g.done).length, stuck = stuckJobs();
+  $("#cNI").textContent = `(${open})`; $("#cNA").textContent = `(${(I.accounts || []).length})`; $("#cBL").textContent = `(${stuck.length})`;
+  $("#issDot").hidden = !(I.needs_info.length + I.needs_account.length + I.blocked.length);
+  if (!issDirty) { renderQuestions(); renderAccounts(); renderBlocked(stuck); }
   buildBookmarklet();
 }
+function renderQuestions(){
+  const G = ISSUES.questions || [], open = G.filter(g => !g.done).length, jobs = new Set(G.flatMap(g => g.jobs.map(j => j.id))).size;
+  $("#qList").innerHTML = G.length ? G.map((g, i) => `<div class="panel icard qcard ${g.done ? "done" : ""}" data-g="${i}">
+      <div class="qp">${esc(g.prompt)}${g.required ? "" : '<span class="opt">Optional</span>'}${g.done ? '<span class="ok">✓ Answered</span>' : ""}</div>
+      ${g.help ? `<div class="qh">${esc(g.help)}</div>` : '<div class="qh"></div>'}
+      ${qInput(g, "g" + i)}
+      ${g.suggested && g.answer === null ? '<div class="count" style="margin-top:6px">Filled in from an answer you gave before. Check it still fits.</div>' : ""}
+      <label class="keep"><input type="checkbox" data-keep ${g.suggested || g.qtype !== "textarea" ? "checked" : ""}> Use this answer for future applications too</label>
+      <div class="qfor">${g.jobs.length > 1 ? `Asked by ${g.jobs.length} jobs: ` : "For "}${jobLinks(g.jobs)}</div>
+      <div class="qform adv">The form asks: ${g.labels.map(l => `“${esc(l)}”`).join(" or ")}</div>
+    </div>`).join("")
+    : `<div class="panel empty">Nothing to answer right now. When an application asks something your settings don't cover, the question shows up here, once, even if several jobs ask it.</div>`;
+  $("#qBar").hidden = !G.length;
+  $("#qState").textContent = open ? `${open} question${open == 1 ? "" : "s"} for ${jobs} job${jobs == 1 ? "" : "s"}. Each answer goes to every job that asked.` : "All answered.";
+}
+function renderAccounts(){
+  const A = ISSUES.accounts || [], me = S.settings?.profile?.email || "";
+  $("#acctList").innerHTML = A.length ? A.map((a, i) => { const k = a.account, who = esc(a.company || "this employer"), site = a.domain ? ` (${esc(a.domain)})` : "";
+    return `<div class="panel icard qcard" data-a="${i}">
+      <div class="qp">${k ? `Sign in for ${who}` : `Make an account for ${who}`}</div>
+      <div class="qh">${k ? `You made an account on this site${site} on ${esc(fmtDate(k.created_at))} with ${esc(k.email_used)}. Sign in on the site in the browser your AI app uses, then let FreeApply know.`
+        : `${who} only takes applications from people with an account on its careers site${site}. FreeApply never makes accounts or handles passwords, so this step is yours: open the sign-up page, make the account and let your browser save the password.`}</div>
+      ${k ? "" : `<div class="email"><label>Which email did you use?</label>
+        <select data-email>${me ? `<option value="${esc(me)}">${esc(me)}</option>` : ""}<option value="__other">Another email…</option></select>
+        <input type="email" data-other placeholder="you@example.com" ${me ? "hidden" : ""}></div>`}
+      <div class="qfor">${a.jobs.length > 1 ? `${a.jobs.length} jobs are waiting on this account: ` : "For "}${jobLinks(a.jobs)}</div>
+      ${a.note ? `<div class="qform adv">FreeApply's note: ${esc(a.note)}</div>` : ""}
+      <div class="btnrow">${a.signup_url ? `<a class="btn" href="${esc(a.signup_url)}" target="_blank" rel="noopener">${k ? "Open the site ↗" : "Open sign-up ↗"}</a>` : ""}
+        <button type="button" class="btn green" data-acct="${i}">${k ? "I'm signed in" : "I made the account"}</button></div></div>`; }).join("")
+    : `<div class="panel empty">No jobs are waiting on an account.</div>`;
+}
+function renderBlocked(list){
+  $("#iss-blocked").innerHTML = list.length ? list.map(j => { const [head, text] = BLOCKED[j.kind] || BLOCKED.other;
+    return `<div class="panel icard qcard">${jobHead(j)}
+      <div class="qp">${esc(head)}</div><div class="qh">${esc(text)}</div>
+      ${j.status_note ? `<div class="qform adv">FreeApply's note: ${esc(j.status_note)}</div>` : ""}
+      <div class="qh" style="margin:12px 0 0">What would you like to do? You can finish it yourself on the site, or let FreeApply try again later.</div>
+      <div class="btnrow"><button type="button" class="btn green" data-done="${j.id}">I applied myself</button><button type="button" class="btn" data-retry="${j.id}">Try again later</button><button type="button" class="btn" data-skip="${j.id}">Skip this job</button></div></div>`; }).join("")
+    : `<div class="panel empty">Nothing is blocked.</div>`;
+}
+["input", "change"].forEach(ev => $("#v-issues").addEventListener(ev, e => { if (e.target.closest(".qcard")) issDirty = true; }));
+$("#v-issues").addEventListener("change", e => { const s = e.target.closest("[data-email]"); if (!s) return;
+  const o = s.parentElement.querySelector("[data-other]"); o.hidden = s.value !== "__other"; if (!o.hidden) o.focus(); });
+$("#qSave").onclick = async () => {
+  const answers = [];
+  (ISSUES.questions || []).forEach((g, i) => { const card = $(`#qList [data-g="${i}"]`); if (!card) return;
+    const answer = qValue(card, g, "g" + i), save = card.querySelector("[data-keep]").checked;
+    g.ids.forEach(id => answers.push({id, answer, save})); });
+  try { const r = await api("/api/issues/answer", {answers}); issDirty = false;
+    const n = r.requeued.length; toast(n ? `Saved. FreeApply will pick up ${n} job${n == 1 ? "" : "s"} again.` : "Saved. Some questions still need an answer."); load(true);
+  } catch (err) { toast(err.message, 1); }
+};
 document.addEventListener("click", async e => {
   const t = e.target;
   try {
-    if (t.dataset.save) { const card = t.closest(".icard"), j = ISSUES.needs_info.find(x => x.id == t.dataset.save);
-      const answers = j.questions.map(q => ({id: q.id, answer: qValue(card, q), save: card.querySelector(`[data-keep="${q.id}"]`).checked}));
-      const r = await api("/api/issues/answer", {answers});
-      toast(r.requeued.length ? "Saved. The job is back in the agent's queue." : "Saved. Some required answers are still empty."); load(true); }
-    if (t.dataset.acct) { const email = prompt("Which email did you use for this account? (Passwords stay in your browser's password manager.)", S.settings?.profile?.email || "");
-      if (!email) return; await api("/api/issues/account", {job_id: +t.dataset.acct, email}); toast("Got it. Sign in on that site, then the agent can continue."); load(true); }
-    if (t.dataset.done) { await api(`/api/jobs/${t.dataset.done}`, {status: "applied", note: "Applied manually by the user"}); toast("Marked as applied"); load(true); }
-    if (t.dataset.retry) { await api(`/api/jobs/${t.dataset.retry}`, {status: "found", note: "Re-queued by the user from the Issues tab"}); toast("Re-queued"); load(true); }
+    if (t.dataset.acct) { const a = ISSUES.accounts[+t.dataset.acct], card = t.closest(".qcard"), sel = card.querySelector("[data-email]");
+      const email = a.account ? a.account.email_used : sel.value === "__other" ? card.querySelector("[data-other]").value.trim() : sel.value;
+      if (!/^[^@\s]+@[^@\s]+$/.test(email || "")) { toast("Choose or type the email you used for the account", 1); return; }
+      const r = await api("/api/issues/account", {job_id: a.jobs[0].id, email}); issDirty = false;
+      toast(`Got it. FreeApply will continue with ${r.requeued.length == 1 ? "that job" : r.requeued.length + " jobs"} once you're signed in on the site.`); load(true); }
+    if (t.dataset.done) { await api(`/api/jobs/${t.dataset.done}`, {status: "applied", note: "Applied manually by the user"}); issDirty = false; toast("Marked as applied"); load(true); }
+    if (t.dataset.retry) { await api(`/api/jobs/${t.dataset.retry}`, {status: "found", note: "Sent back by you from Needs you"}); issDirty = false; toast("FreeApply will try again"); load(true); }
+    if (t.dataset.skip) { await api(`/api/jobs/${t.dataset.skip}`, {status: "skipped", note: "Skipped by you from Needs you"}); issDirty = false; toast("Skipped"); load(true); }
   } catch (err) { toast(err.message, 1); }
 });
 function buildBookmarklet(){
@@ -944,6 +1074,64 @@ $("#shDelete").onclick = async () => {
   if (!confirm("Delete everything this installation has shared with the FreeApply server and turn all sharing off? A new installation ID will be created.")) return;
   const r = await api("/api/sharing/delete", {}); toast(r.error ? "Delete failed: " + r.error : "Shared data deleted", !!r.error); checkGate(); };
 
+/* problems: reports of things that went wrong. One leaves this computer only when its own box is ticked and Send is pressed. */
+const PB_WHAT = {tool: "Something your AI assistant asked FreeApply to do failed", dashboard: "Part of this dashboard failed",
+  crash: "FreeApply stopped unexpectedly", update: "Checking for FreeApply updates failed", sync: "Sending your shared data failed",
+  other: "Something went wrong"};
+let PB = [], pbSig = null, pbSeq = 0;
+const pbSay = (m, err) => { $("#pbStatus").textContent = m; toast(m, err); };
+function pbCard(p){ const id = esc(p.id), times = p.count > 1 ? `Happened ${p.count} times, last` : "Happened";
+  return `<article class="panel qcard prob" id="pb-${id}" aria-labelledby="pbh-${id}">
+    <h4 id="pbh-${id}" tabindex="-1">${esc(PB_WHAT[p.kind] || PB_WHAT.other)}</h4>
+    <div class="qh">${times} ${esc(new Date(p.last_at).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}))} · ${esc(p.source || p.kind)}</div>
+    <p class="pmsg">${esc(p.message)}</p>
+    <div class="count" id="pbw-${id}">Exactly what would be sent: a random installation ID (not linked to your name), the FreeApply and workflow versions, what failed, the error message and where in FreeApply's code it happened.</div>
+    <pre class="preview" tabindex="0" aria-labelledby="pbw-${id}">${esc(JSON.stringify(p.payload, null, 2))}</pre>
+    <label class="agree"><input type="checkbox" id="pbok-${id}" data-pbok="${id}" required aria-required="true" aria-describedby="pbn-${id}"><span>I agree to share this report with FreeApply</span></label>
+    <div class="btnrow">
+      <button type="button" class="btn green" id="pbsend-${id}" data-pbsend="${id}" disabled aria-describedby="pbn-${id}">Send report</button>
+      <button type="button" class="btn" id="pbdis-${id}" data-pbdismiss="${id}">Dismiss</button>
+    </div>
+    <p class="count" id="pbn-${id}" style="margin:8px 0 0">Send works only after you tick the box. Dismiss deletes this report from your computer without sending it.</p>
+  </article>`; }
+async function loadProblems(){
+  const seq = ++pbSeq;
+  let r; try { r = await api("/api/problems"); } catch { return; }
+  if (seq !== pbSeq) return; // a newer refresh is on its way; an older answer must not bring back a sent report
+  PB = r.reports || [];
+  const n = PB.length, word = `${n} report${n == 1 ? "" : "s"}`;
+  $("#pbTab").hidden = !n;
+  $("#pbTab").innerHTML = n ? `<span aria-hidden="true">${n}</span><span class="sr">, ${word} about problems waiting</span>` : "";
+  $("#pbSummary").textContent = n ? `${word} waiting for you to send or dismiss` : "Nothing to report";
+  // Redraw only when the list changed, so a ticked box, the scroll position and keyboard focus survive the minute refresh.
+  const sig = PB.map(p => `${p.id}:${p.count}`).join(",");
+  if (sig === pbSig) return;
+  pbSig = sig;
+  const ticked = $$("[data-pbok]").filter(i => i.checked).map(i => i.dataset.pbok), focused = document.activeElement?.id;
+  $("#pbList").innerHTML = n ? PB.map(pbCard).join("") : `<p class="count">No problems recorded. If something fails, it shows up here.</p>`;
+  for (const id of ticked) { const i = document.getElementById("pbok-" + id); if (i) { i.checked = true; pbToggle(i); } }
+  if (focused) document.getElementById(focused)?.focus();
+}
+function pbToggle(i){ document.getElementById("pbsend-" + i.dataset.pbok).disabled = !i.checked; }
+// After Send or Dismiss, focus moves to the next report (or the panel heading), so keyboard and screen-reader users keep their place.
+function pbGone(id, msg){ const card = document.getElementById("pb-" + id), next = card?.nextElementSibling || card?.previousElementSibling;
+  card?.remove(); pbSay(msg); (next?.querySelector("h4") || $("#pbSum")).focus(); loadProblems(); }
+$("#pbList").addEventListener("change", e => { if (e.target.dataset.pbok) pbToggle(e.target); });
+$("#pbList").addEventListener("click", async e => {
+  const send = e.target.closest("[data-pbsend]"), dismiss = e.target.closest("[data-pbdismiss]");
+  if (send) { const id = send.dataset.pbsend, box = document.getElementById("pbok-" + id);
+    if (!box.checked) { pbSay("Tick “I agree to share this report with FreeApply” first", 1); box.focus(); return; }
+    send.disabled = true; send.textContent = "Sending…";
+    try { const r = await api("/api/problems/send", {id, consent: true});
+      if (r.sent) return pbGone(id, "Report sent. Thank you for helping fix FreeApply.");
+      pbSay("Not sent: " + r.reason, 1);
+    } catch (err) { pbSay("Not sent: " + err.message, 1); }
+    send.textContent = "Send report"; send.disabled = !box.checked; (send.disabled ? box : send).focus(); }
+  if (dismiss) { const id = dismiss.dataset.pbdismiss;
+    try { await api("/api/problems/dismiss", {id}); pbGone(id, "Report dismissed: deleted from this computer, not sent."); }
+    catch (err) { pbSay(err.message, 1); } }
+});
+
 /* load */
 async function load(skipSettings){
   try {
@@ -960,8 +1148,8 @@ async function load(skipSettings){
     loadAutorun();
     const methods = [...new Set(JOBS.map(j => j.method).filter(Boolean))];
     const cur = $("#fMethod").value; $("#fMethod").innerHTML = `<option value="">All methods</option>` + methods.map(m => `<option ${m===cur?"selected":""}>${esc(m)}</option>`).join("");
-    renderJobs(); renderReplies(); renderIssues();
-    $("#sub").textContent = "MISSION CONTROL · " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    renderJobs(); renderReplies(); renderIssues(); loadProblems();
+    $("#sub").textContent = "YOUR JOB SEARCH · " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
   } catch (err) { toast("Can't reach FreeApply: " + err.message, 1); }
 }
 $("#refresh").onclick = () => load();

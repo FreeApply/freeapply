@@ -5,6 +5,7 @@ Disclosures and Recruiter Terms) share one version number, so each file covers b
 
 | Version | Released | Summary |
 |---|---|---|
+| [1.0.1](1.0.1.md) | 2026-10-27 | Clearer tools for your AI app (22 instead of 25), a Needs you tab that asks each question once in plain words, and problem reports you can send, each only with your OK. |
 | [1.0.0](1.0.0.md) | 2026-10-27 | First public release; one version number for the app and its legal documents |
 
 ## Version numbers

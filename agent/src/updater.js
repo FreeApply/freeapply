@@ -5,6 +5,7 @@
 // A hacked server can therefore withhold updates but cannot change what the agent does. Nothing about the user is sent:
 // the check is a conditional GET of one small public file.
 import * as store from "./store.js";
+import * as errorlog from "./errorlog.js";
 import { endpoint } from "./sharing.js";
 import { FORMAT, olderThan, open } from "./workflow.js";
 
@@ -45,7 +46,7 @@ export function urlAllowed(url, base = endpoint()) {
 
 async function download(url, limit, fetchImpl = fetch) {
   const r = await fetchImpl(url, { headers: { "User-Agent": `FreeApply/${store.VERSION}` }, signal: AbortSignal.timeout(30000) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status });
   const buf = Buffer.from(await r.arrayBuffer());
   if (buf.length > limit) throw new Error("download too large");
   return { buf, r };
@@ -87,7 +88,7 @@ export async function check(guard, { force = false, fetchImpl = fetch } = {}) {
       manifest = JSON.parse(text);
       etag = r.headers.get("etag");
     } else if (r.status !== 304) {
-      throw new Error(`HTTP ${r.status}`);
+      throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status });
     }
     const out = { checked: true, workflow: "current" };
     next.manifest = manifest;
@@ -115,10 +116,13 @@ export async function check(guard, { force = false, fetchImpl = fetch } = {}) {
       }
     }
     writeCache(schedule(0));
+    // A refused or failed install is a problem worth reporting; "needs a newer FreeApply" is not (the app update fixes it).
+    if (/^(refused|not installed)/.test(out.workflow)) errorlog.record("update", "workflow update", out.workflow);
     out.app_update = info().app_update;
     return out;
   } catch (e) {
     writeCache(schedule((cache.failures || 0) + 1));
+    if (!errorlog.transient(e)) errorlog.record("update", "update check", e);
     return { checked: true, error: e.message };
   }
 }

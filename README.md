@@ -7,7 +7,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.0** ([notes](release-notes/1.0.0.md)). The app and its legal documents share one version
+Current version: **1.0.1** ([notes](release-notes/1.0.1.md)). The app and its legal documents share one version
 number.
 
 ## What it does
@@ -70,13 +70,16 @@ The dashboard shows one card labeled "Sponsored", chosen on your computer from a
 trackers, and no data is sent to show it.
 
 ## Dashboard
-Overview, Applications, Replies, Issues and Settings, plus the Terms, Privacy, Disclosures and Recruiter Terms. The
-**Issues** tab collects what needs you:
-- **Needs info**: questions a form asked that your settings don't answer. Answer once; you can reuse the answer on
-  later forms, and the job goes back in the queue.
-- **Needs account**: the job and its sign-up link, plus a **FreeApply Autofill** bookmarklet that fills your name,
-  email, phone and location on sign-up pages. Passwords stay with your browser or password manager.
-- **Blocked**: the reason, with "I applied myself" and "Re-queue".
+Overview, Applications, Replies, Issues and Settings, with the Terms, Privacy Policy, Disclosures and Recruiter Terms
+linked in the footer. The **Needs you** tab collects what needs you, in plain words:
+- **Questions**: what a form asked that your settings don't answer, each as a simple question you answer by typing,
+  from a dropdown or by picking options. A question several jobs ask is shown once, and one answer goes to all of
+  them; questions you already answered aren't asked again. The jobs then go back in the queue.
+- **Accounts to create**: one card per sign-up page, however many jobs wait on that account, with its link and a
+  **FreeApply Autofill** bookmarklet that fills your name, email, phone and location on sign-up pages. Passwords stay
+  with your browser or password manager.
+- **Blocked**: what the site asked for (a "prove you're a person" check, a code, a warning), with "I applied myself",
+  "Try again later" and "Skip this job".
 
 ## Configuration
 | What | Where |
@@ -88,14 +91,16 @@ Overview, Applications, Replies, Issues and Settings, plus the Terms, Privacy, D
 | Flags | `--data <dir>`, `--db <file>`, `--port <n>`, `--skills-dir <dir>` (repeatable; skill files are kept equal to the signed workflow) |
 
 ## Tools
+22 tools, each with a title, annotations (read-only, destructive, idempotent) and a description of every parameter:
 `freeapply_status`, `freeapply_open_dashboard`, `freeapply_workflow` (the signed procedure for a task),
-`freeapply_get_settings`, `freeapply_update_settings`, `freeapply_check_duplicate`, `freeapply_add_job`,
-`freeapply_update_job`, `freeapply_check_text` (truthfulness check), `freeapply_get_answers`,
-`freeapply_site_account`, `freeapply_set_outcome`, `freeapply_site_status`, `freeapply_autorun` (unattended runs),
-`freeapply_throttle` (pace check before each submit), `freeapply_list_jobs`, `freeapply_get_stats`,
-`freeapply_reply_check_plan`, `freeapply_record_reply`, `freeapply_finish_reply_check`, `freeapply_save_resume_text`,
-`freeapply_save_resume_profile`, `freeapply_fetch_posting` (fetches and trims postings on your computer to save
-tokens), `freeapply_preview_shared_data`, `freeapply_sync_shared_data`.
+`freeapply_get_settings`, `freeapply_update_settings`, `freeapply_save_resume` (résumé text and profile),
+`freeapply_fetch_posting` (fetches and trims postings on your computer to save tokens), `freeapply_check_duplicate`,
+`freeapply_add_job`, `freeapply_check_text` (truthfulness check), `freeapply_answers` (get a job's answers or save a
+reusable one), `freeapply_site_account`, `freeapply_throttle` (pace check before each submit), `freeapply_update_job`
+(your side: found to applied), `freeapply_site_status`, `freeapply_autorun` (unattended runs), `freeapply_list_jobs`,
+`freeapply_get_stats`, `freeapply_reply_check` (start or finish a Gmail check), `freeapply_record_reply` (an employer
+email), `freeapply_set_outcome` (the employer's response without an email), `freeapply_shared_data` (preview or send
+shared data). Removing a job is a dashboard action only (Applications → Remove); the agent has no tool for it.
 
 Skills for Claude Code: `freeapply-setup`, `freeapply-apply`, `freeapply-replies`. Each points to its signed procedure.
 

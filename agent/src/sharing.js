@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as store from "./store.js";
+import * as errorlog from "./errorlog.js";
 
 export const OPERATOR = "MyBotsAI";
 export const CONTACT_EMAIL = "mybotsai@gmail.com";
@@ -233,7 +234,10 @@ export function preview(s = store.loadSettings()) {
 async function request(pathname, body) {
   const r = await fetch(ENDPOINT() + pathname, { method: "POST", body: JSON.stringify(body),
     headers: { "Content-Type": "application/json", "User-Agent": `FreeApply/${store.VERSION}` }, signal: AbortSignal.timeout(20000) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) {
+    const why = (await r.json().catch(() => ({}))).error;
+    throw Object.assign(new Error(`HTTP ${r.status}${typeof why === "string" ? `: ${why.slice(0, 200)}` : ""}`), { status: r.status });
+  }
   return r.json().catch(() => ({}));
 }
 
@@ -271,6 +275,7 @@ export async function sync(force = false) {
     return { sent: true, result: res };
   } catch (e) {
     store.saveSettings({ sharing: { last_sync_result: `error: ${e.message}` } });
+    if (!errorlog.transient(e)) errorlog.record("sync", "sync", e);
     return { sent: false, reason: e.message };
   }
 }
@@ -286,6 +291,7 @@ export async function deleteRemote() {
       result.deleted_remote = true;
     } catch (e) {
       result.error = e.message;
+      if (!errorlog.transient(e)) errorlog.record("sync", "delete shared data", e);
       return result;
     }
   }
@@ -295,4 +301,40 @@ export async function deleteRemote() {
     last_sync: null, last_sync_result: "deleted", decided_at: store.now() } });
   result.new_ids = true;
   return result;
+}
+
+// ───────────────────────────── problem reports ─────────────────────────────
+
+/** Exactly what Send posts for one problem report (errorlog.js). The installation ID lets "Delete my shared data"
+ * remove reports too; the secret proves the report comes from this installation. */
+export function errorReportPayload(r, s = store.loadSettings(), consentedAt = null) {
+  return { install_id: s.sharing.install_id, install_secret: s.sharing.install_secret, consent: true,
+    consented_at: consentedAt, report: errorlog.payload(r) };
+}
+
+/** The reports waiting in the dashboard, each with the payload Send would post (secret hidden). */
+export function errorReports(s = store.loadSettings()) {
+  return { endpoint_configured: !!ENDPOINT(), reports: errorlog.list().map((r) => ({ id: r.id, kind: r.kind, source: r.source,
+    message: r.message, count: r.count || 1, first_at: r.first_at, last_at: r.last_at,
+    payload: { ...errorReportPayload(r, s, "(the time you press Send)"), install_secret: "(hidden)" } })) };
+}
+
+/** Sends one report, and only with the user's consent: the dashboard passes consent: true from the report's own
+ * checkbox. Nothing calls this on its own. A sent report leaves the local log. */
+export async function sendErrorReport(id, consent) {
+  if (consent !== true) throw new Error("Tick “I agree to share this report with FreeApply” before sending.");
+  const s = store.loadSettings();
+  if (!consentStatus(s).ok) throw new Error("Accept the current Terms and Privacy Policy first.");
+  const r = errorlog.get(id);
+  if (!r) throw new Error("This report is no longer there.");
+  if (!ENDPOINT()) return { sent: false, reason: "no server configured" };
+  try {
+    await request("/v1/errors", errorReportPayload(r, s, new Date().toISOString().replace(/\.\d+Z$/, "Z")));
+  } catch (e) {
+    const reason = e.status === 429 ? "You sent several reports in a row. Try this one again in an hour."
+      : errorlog.transient(e) ? "FreeApply's server could not be reached. Try again later." : e.message;
+    return { sent: false, reason };
+  }
+  errorlog.remove(id);
+  return { sent: true };
 }

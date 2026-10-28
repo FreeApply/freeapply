@@ -92,9 +92,9 @@ export function suggestedAnswers(questions, source) {
   ];
   const saved = s.custom_answers || {}, out = {};
   for (const q of questions || []) {
-    const key = store.normQ(q.label);
-    if (key in saved) { // answers the user gave on the Issues tab win
-      out[q.label] = saved[key];
+    const mine = store.savedAnswerFor(q.label, saved);
+    if (mine?.score === 1) { // answers the user saved for the same question win (similar ones are only shown to the user)
+      out[q.label] = mine.answer;
       continue;
     }
     const label = (q.label || "").toLowerCase();

@@ -15,6 +15,7 @@ import { Guard, parseKeys } from "./workflow.js";
 import { TOOLS, callTool } from "./tools.js";
 import * as ads from "./ads.js";
 import * as updater from "./updater.js";
+import * as errorlog from "./errorlog.js";
 
 const AGENT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROTOCOL = "2025-06-18";
@@ -71,7 +72,8 @@ async function handle(msg, ctx) {
     case "ping":
       return {};
     case "tools/list":
-      return { tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) };
+      return { tools: TOOLS.map(({ name, title, description, inputSchema, annotations }) => ({ name, title, description, inputSchema,
+        annotations: { title, ...annotations } })) };
     case "tools/call":
       return callTool(params.name, params.arguments, ctx);
     case "prompts/list":
@@ -146,7 +148,16 @@ async function main() {
   setTimeout(() => sharing.sync().catch(() => {}), 2000).unref();
 }
 
-main().catch((e) => {
-  console.error(`freeapply: ${e.stack || e.message}`);
-  process.exit(1);
-});
+// A crash goes into the local problem log (Settings → Data sharing → Problems) before FreeApply stops, as it always
+// has; the AI app starts it again. Nothing is sent unless the user sends the report.
+function crash(source) {
+  return (e) => {
+    errorlog.record("crash", source, e);
+    console.error(`freeapply: ${e?.stack || e?.message || e}`);
+    process.exit(1);
+  };
+}
+process.on("uncaughtException", crash("uncaught exception"));
+process.on("unhandledRejection", crash("unhandled promise rejection"));
+
+main().catch(crash("startup"));

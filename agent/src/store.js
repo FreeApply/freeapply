@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const VERSION = "1.0.0";
+export const VERSION = "1.0.1";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
@@ -79,7 +79,10 @@ CREATE TABLE IF NOT EXISTS site_accounts (
 );
 `;
 // Columns added on top of the original schema (added in place to old databases).
-const EXTRA_JOB_COLUMNS = { source: "TEXT", outcome: "TEXT", outcome_at: "TEXT", external_id: "TEXT" };
+// account_url: for needs_account, the page where the user makes the account (jobs with the same one share a card).
+const EXTRA_JOB_COLUMNS = { source: "TEXT", outcome: "TEXT", outcome_at: "TEXT", external_id: "TEXT", account_url: "TEXT" };
+// prompt: the question in plain words for the user; help: a one-line hint. label stays the form's exact wording.
+const EXTRA_QUESTION_COLUMNS = { prompt: "TEXT", help: "TEXT" };
 
 const DEFAULT_SETTINGS = {
   profile: { full_name: "", email: "", phone: "", city: "", region: "", country: "", linkedin_url: "", portfolio_url: "" },
@@ -100,7 +103,7 @@ const DEFAULT_SETTINGS = {
   // through freeapply_autorun. Budgets are per run; the daily cap above still applies.
   autorun: { enabled: false, every_hours: 1, max_minutes: 50, max_applications: null, schedule_created: false },
   onboarding: { completed_at: null, dismissed_at: null },
-  // Answers the user gave on the Issues tab and chose to reuse: {normalized question: answer}.
+  // Answers the user gave on the Needs you tab and chose to reuse: {normalized question: answer}.
   custom_answers: {},
   gmail: { enabled: true, interval_hours: 4, action: "star", label_name: "Job Replies",
     count_acknowledgements: false, last_check: null, schedule_created: false },
@@ -256,7 +259,10 @@ export function publicSettings(s) {
 
 /** Deep-merges `patch` into settings.json and recomputes setup_complete. */
 export function saveSettings(patch) {
-  const s = merge(loadSettings(), patch || {});
+  return writeSettings(merge(loadSettings(), patch || {}));
+}
+
+function writeSettings(s) {
   s.setup_complete = !missingFields(s).length;
   const tmp = `${paths.settings}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
@@ -291,6 +297,8 @@ export function db() {
   con.exec(SCHEMA);
   const have = new Set(con.prepare("PRAGMA table_info(jobs)").all().map((r) => r.name));
   for (const [col, typ] of Object.entries(EXTRA_JOB_COLUMNS)) if (!have.has(col)) con.exec(`ALTER TABLE jobs ADD COLUMN ${col} ${typ}`);
+  const haveQ = new Set(con.prepare("PRAGMA table_info(job_questions)").all().map((r) => r.name));
+  for (const [col, typ] of Object.entries(EXTRA_QUESTION_COLUMNS)) if (!haveQ.has(col)) con.exec(`ALTER TABLE job_questions ADD COLUMN ${col} ${typ}`);
   _db = con;
   return con;
 }
@@ -387,6 +395,38 @@ export function setStatus(jobId, status, { note, method, confirmation, resumePat
   return { job_id: jobId, status };
 }
 
+/** Saves one reusable answer under the question's label, or removes it when the answer is empty. Saved answers fill
+ * later forms and count as the user's own words in the truthfulness check. */
+export function saveAnswer(label, answer) {
+  const key = String(label || "").trim();
+  if (!key) throw new Error("label is required");
+  const s = loadSettings(), answers = { ...(s.custom_answers || {}) };
+  const value = answer == null ? "" : String(answer).trim();
+  if (value) answers[key] = value;
+  else delete answers[key];
+  writeSettings({ ...s, custom_answers: answers });
+  return { label: key, saved: !!value, removed: !value, saved_answers: answers };
+}
+
+/** Removes a job and what belongs only to it (application record, form questions, recorded emails). An account the
+ * user made on the employer's site stays, unlinked from the job. The dashboard's Remove button calls this. */
+export function deleteJob(jobId) {
+  const id = Number(jobId);
+  const job = one("SELECT id, title, company FROM jobs WHERE id=?", id);
+  if (!job) throw new Error(`no job ${id}`);
+  db().exec("BEGIN");
+  try {
+    for (const t of ["job_questions", "applications", "replies"]) run(`DELETE FROM ${t} WHERE job_id=?`, id);
+    run("UPDATE site_accounts SET job_id=NULL WHERE job_id=?", id);
+    run("DELETE FROM jobs WHERE id=?", id);
+    db().exec("COMMIT");
+  } catch (e) {
+    db().exec("ROLLBACK");
+    throw e;
+  }
+  return { removed: id, title: job.title, company: job.company };
+}
+
 export function setOutcome(jobId, outcome) {
   if (outcome && !OUTCOMES[outcome]) throw new Error(`outcome must be one of ${Object.keys(OUTCOMES).sort().join(", ")}`);
   run("UPDATE jobs SET outcome=?, outcome_at=?, updated_at=? WHERE id=?", outcome || null, outcome ? now() : null, now(), jobId);
@@ -433,7 +473,8 @@ export function throttleCounts(method) {
 
 // ───────────────────────────── reads for the dashboard ─────────────────────────────
 
-export function listJobs(status, outcome, search, limit = 2000) {
+/** Tracked jobs, most recent activity first. limit and offset page through them (the dashboard asks for all). */
+export function listJobs(status, outcome, search, limit = 2000, offset = 0) {
   let q = "SELECT j.id, j.title, j.company, j.location, j.work_mode, j.pay_text, j.pay_min, j.pay_max, j.url, " +
     "j.apply_url, j.fit_score, j.status, j.status_note, j.outcome, j.outcome_at, j.source, j.found_at, " +
     "j.updated_at, a.method, a.submitted_at, a.confirmation, a.resume_path, a.cover_path, " +
@@ -443,8 +484,8 @@ export function listJobs(status, outcome, search, limit = 2000) {
   if (status) (q += " AND j.status=?"), args.push(status);
   if (outcome) (q += " AND j.outcome=?"), args.push(outcome);
   if (search) (q += " AND (j.title LIKE ? OR j.company LIKE ? OR j.location LIKE ?)"), args.push(...Array(3).fill(`%${search}%`));
-  q += " ORDER BY coalesce(a.submitted_at, j.updated_at, j.found_at) DESC LIMIT ?";
-  return all(q, ...args, Number(limit) || 2000);
+  q += " ORDER BY coalesce(a.submitted_at, j.updated_at, j.found_at) DESC, j.id DESC LIMIT ? OFFSET ?";
+  return all(q, ...args, Number(limit) || 2000, Math.max(0, Number(offset) || 0));
 }
 
 export function listReplies(limit = 500) {
@@ -495,19 +536,172 @@ export function stats() {
 
 export const normQ = (label) => (label || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 200);
 
-/** Stores the form questions that stopped an application, so the user can answer them on the Issues tab. */
-export function addQuestions(jobId, questions) {
-  let n = 0;
-  for (const q of questions || []) {
-    const label = String(q?.label || "").trim();
-    if (!label) continue;
-    const qtype = QTYPES.includes(q.type) ? q.type : q.options ? "choice" : "text";
-    if (one("SELECT 1 AS x FROM job_questions WHERE job_id=? AND label=? AND answer IS NULL", jobId, label)) continue;
-    run("INSERT INTO job_questions (job_id, label, qtype, options_json, required, created_at) VALUES (?,?,?,?,?,?)",
-      jobId, label.slice(0, 500), qtype, JSON.stringify(q.options || null), q.required === false ? 0 : 1, now());
-    n++;
+// Filler words that don't change what a form question asks.
+const Q_FILLER = new Set(("a an the and or of to in on for at by with from is are am be been do does did you your i me my " +
+  "we our this that these those it its as if please any have has had will would can could should may there here what " +
+  "which who whom whose when where how about into than so able").split(" "));
+const qWords = (label) => new Set(normQ(label).split(" ").filter((w) => w && !Q_FILLER.has(w))
+  .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w)));
+
+/** How alike two form questions are: 1 for the same words once filler is ignored, down to 0 for nothing in common. */
+export function qSimilarity(a, b) {
+  const na = normQ(a);
+  if (na && na === normQ(b)) return 1;
+  const x = qWords(a), y = qWords(b);
+  if (!x.size || !y.size) return 0;
+  let both = 0;
+  for (const w of x) if (y.has(w)) both++;
+  return both / (x.size + y.size - both);
+}
+// From this score two questions are similar: a saved answer becomes a suggestion, and on one job the newer is a duplicate.
+export const SIMILAR = 0.6;
+
+// Answer kinds that are the same to the user: free text either way, or picking one option.
+const FAMILY = { text: "open", textarea: "open", yesno: "choice" };
+const family = (q) => FAMILY[q.qtype] || q.qtype;
+const optionsOf = (q) => (q.qtype === "yesno" ? ["Yes", "No"] : q.options || null);
+const optionKey = (q) => (optionsOf(q) || []).map((o) => String(o).trim().toLowerCase()).sort().join("|");
+const sameWords = (a, b) => !!a && !!b && qSimilarity(a, b) === 1;
+/** The same question: the same words (filler aside) in the form's label or in the plain prompt, the same kind of answer
+ * and the same options. Two forms word one question differently; the plain prompts then usually agree. */
+const sameQuestion = (a, b) => (sameWords(a.label, b.label) || sameWords(a.prompt, b.prompt)) && family(a) === family(b) &&
+  optionKey(a) === optionKey(b);
+
+/** Whether an answer fits a question: one of its options for a choice or yes/no, a list of them for multi. */
+function answerFits(q, answer) {
+  const opts = optionsOf(q);
+  if (!opts) return true;
+  const ok = (v) => opts.some((o) => String(o).trim().toLowerCase() === String(v).trim().toLowerCase());
+  if (q.qtype !== "multi") return ok(answer);
+  let v;
+  try {
+    v = JSON.parse(answer);
+  } catch {
+    v = String(answer).split(/\s*,\s*/);
   }
-  return n;
+  return Array.isArray(v) && v.length > 0 && v.every(ok);
+}
+
+/** The user's saved answer closest to a question, by its label or its plain prompt: {key, answer, score}, or null when
+ * none is at least similar. */
+export function savedAnswerFor(label, saved = loadSettings().custom_answers || {}, prompt = null) {
+  let best = null;
+  for (const [key, answer] of Object.entries(saved)) {
+    const score = Math.max(qSimilarity(label, key), prompt ? qSimilarity(prompt, key) : 0);
+    if (score >= SIMILAR && (!best || score > best.score)) best = { key, answer, score };
+  }
+  return best;
+}
+
+/** A form label in plainer words, for questions that came without a prompt: no asterisks, "(required)", field ids,
+ * "Please enter" or shouting. */
+export function plainer(label) {
+  const raw = String(label || "").replace(/\s+/g, " ").trim();
+  let t = raw.replace(/\*+/g, "").replace(/\((?:required|optional|mandatory|y\/n|yes\/no)\)/gi, "")
+    .replace(/\b[a-z]+(?:_[a-z0-9]+)*_\d+\b/gi, "").replace(/\[\d*\]/g, "")
+    .replace(/^please\s+(?:enter|provide|specify|indicate|select|state|list)\s+/i, "").replace(/^please\s+/i, "")
+    .replace(/\s+([?.:,])/g, "$1").replace(/[\s:]+$/, "").replace(/\s+/g, " ").trim();
+  if (/[A-Z]{4}/.test(t) && t === t.toUpperCase()) t = t.toLowerCase();
+  return t ? t[0].toUpperCase() + t.slice(1) : raw;
+}
+
+const withOptions = ({ options_json, ...q }) => ({ ...q, options: JSON.parse(options_json || "null") });
+
+/** A question as the agent sent it, tidied: label (the form's exact wording), qtype, options, required, prompt, help. */
+function cleanQuestion(q) {
+  const options = Array.isArray(q?.options) ? q.options.map((o) => String(o).trim()).filter(Boolean) : [];
+  const line = (v, n) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n) || null;
+  return { label: String(q?.label || "").trim().slice(0, 500), qtype: QTYPES.includes(q?.type) ? q.type : options.length ? "choice" : "text",
+    options: options.length ? options : null, required: q?.required !== false, prompt: line(q?.prompt, 200), help: line(q?.help, 300) };
+}
+
+function insertQuestion(jobId, q) {
+  run("INSERT INTO job_questions (job_id, label, qtype, options_json, required, prompt, help, created_at) VALUES (?,?,?,?,?,?,?,?)",
+    jobId, q.label, q.qtype, JSON.stringify(q.options), q.required ? 1 : 0, q.prompt, q.help, now());
+}
+
+/** Checks new form questions against what already waits on the user and what they already answered, storing nothing.
+ * Each result is: added (new); duplicate (this job already waits on the same or a similar question: same_as);
+ * grouped (other jobs wait on the same question, with_jobs: one answer will fill them all); or already_answered (the
+ * user answered the same question before, for this job or as a saved answer: answer). A similar saved answer is
+ * offered to the user as suggested. */
+export function checkQuestions(jobId, questions) {
+  const id = Number(jobId), saved = loadSettings().custom_answers || {};
+  const rows = all("SELECT q.* FROM job_questions q JOIN jobs j ON j.id=q.job_id WHERE q.job_id=? OR (q.answer IS NULL AND j.status='needs_info')", id)
+    .map(withOptions);
+  const open = rows.filter((r) => r.answer === null), mine = open.filter((r) => r.job_id === id), others = open.filter((r) => r.job_id !== id);
+  const answeredHere = rows.filter((r) => r.job_id === id && r.answer !== null);
+  const taken = [];
+  return (questions || []).map(cleanQuestion).filter((q) => q.label).map((q) => {
+    const dup = [...mine, ...taken].find((m) => family(m) === family(q) && (qSimilarity(m.label, q.label) >= SIMILAR || sameWords(m.prompt, q.prompt)));
+    if (dup) return { q, label: q.label, result: "duplicate", same_as: dup.label };
+    const before = answeredHere.find((r) => sameQuestion(r, q) && answerFits(q, r.answer));
+    if (before) return { q, label: q.label, result: "already_answered", answer: before.answer };
+    const s = savedAnswerFor(q.label, saved, q.prompt);
+    if (s?.score === 1 && answerFits(q, s.answer)) return { q, label: q.label, result: "already_answered", answer: s.answer };
+    taken.push(q);
+    const withJobs = [...new Set(others.filter((o) => sameQuestion(o, q)).map((o) => o.job_id))];
+    return { q, label: q.label, result: withJobs.length ? "grouped" : "added", ...(withJobs.length ? { with_jobs: withJobs } : {}),
+      ...(s && answerFits(q, s.answer) ? { suggested: s.answer } : {}) };
+  });
+}
+
+/** Stores the form questions that stopped an application, so the user can answer them on the Needs you tab. Only
+ * added and grouped questions are stored (checkQuestions). Returns the result for each question. */
+export function addQuestions(jobId, questions) {
+  const plan = checkQuestions(jobId, questions);
+  for (const p of plan) if (p.result === "added" || p.result === "grouped") insertQuestion(jobId, p.q);
+  return plan.map(({ q, ...r }) => r);
+}
+
+/** Other jobs blocked on the same employer site. */
+export function sameSiteIssues(jobId, status) {
+  const j = one("SELECT url, apply_url FROM jobs WHERE id=?", jobId), d = j && domainOf(j.apply_url || j.url);
+  if (!d) return [];
+  return all("SELECT id, title, company, url, apply_url FROM jobs WHERE status=? AND id<>?", status, jobId)
+    .filter((r) => domainOf(r.apply_url || r.url) === d).map(({ id, title, company }) => ({ id, title, company }));
+}
+
+// Link parameters that only track where a visit came from; they don't change which page opens.
+const TRACKING = /^(utm_\w+|gclid|fbclid|ref|src|source|trk|trackingid|refid)$/i;
+
+/** Where a job's account is made, as a key: the same key means the same account, so the jobs share one card. It is the
+ * account page the agent recorded (else the application link), with the host in lower case and without www, no
+ * trailing slash, no #fragment and no tracking parameters. Only the same address counts: one host often serves many
+ * employers (boards.greenhouse.io/acme and boards.greenhouse.io/globex are different accounts). */
+export function accountKey(j) {
+  try {
+    const u = new URL(j.account_url || j.apply_url || j.url);
+    const q = [...u.searchParams].filter(([k]) => !TRACKING.test(k)).sort(([a], [b]) => a.localeCompare(b));
+    return u.host.toLowerCase().replace(/^www\./, "") + u.pathname.replace(/\/+$/, "") + (q.length ? `?${new URLSearchParams(q)}` : "");
+  } catch {
+    return "";
+  }
+}
+
+/** Other jobs waiting on an account at the same address (accountKey). */
+export function sameAccountIssues(jobId) {
+  const j = one("SELECT url, apply_url, account_url FROM jobs WHERE id=?", jobId), key = j && accountKey(j);
+  if (!key) return [];
+  return all("SELECT id, title, company, url, apply_url, account_url FROM jobs WHERE status='needs_account' AND id<>?", jobId)
+    .filter((r) => accountKey(r) === key).map(({ id, title, company }) => ({ id, title, company }));
+}
+
+/** Records the page where the user makes the account a job needs. Only http(s) links. */
+export function setAccountUrl(jobId, url) {
+  const u = String(url || "").trim();
+  if (!/^https?:\/\//i.test(u) || !accountKey({ url: u })) throw new Error("account_url must be a full http(s) link to the sign-up page");
+  run("UPDATE jobs SET account_url=? WHERE id=?", u.slice(0, 1000), jobId);
+}
+
+/** What stopped a blocked job, read from the agent's note: a "prove you're human" check (captcha), a code sent to the
+ * user (code), a warning about automated use (warning), or something else (other). The dashboard words each plainly. */
+export function blockedKind(note) {
+  const t = String(note || "").toLowerCase();
+  if (/captcha|human|robot|turnstile|puzzle|challenge/.test(t)) return "captcha";
+  if (/\bcode\b|one[- ]time|\botp\b|2fa|two[- ]factor|passcode|verification (?:email|text|sms)/.test(t)) return "code";
+  if (/automat|unusual|suspicious|\bbots?\b|too many|rate.?limit|warning|restricted|banned/.test(t)) return "warning";
+  return "other";
 }
 
 export function domainOf(u) {
@@ -518,11 +712,13 @@ export function domainOf(u) {
   }
 }
 
+/** Everything waiting on the user, by status, plus the two views the Needs you tab shows: questions (each question
+ * once, however many jobs ask it, worded plainly) and accounts (one per employer site, however many jobs wait on it). */
 export function listIssues() {
   const saved = loadSettings().custom_answers || {};
   const out = Object.fromEntries(ISSUE_STATUSES.map((k) => [k, []]));
   const rows = all(`SELECT j.*, a.method FROM jobs j LEFT JOIN applications a ON a.job_id=j.id WHERE j.status IN (${ISSUE_STATUSES.map(() => "?").join(",")}) ` +
-    "ORDER BY j.updated_at DESC", ...ISSUE_STATUSES);
+    "ORDER BY j.updated_at DESC, j.id DESC", ...ISSUE_STATUSES);
   const questions = (id) => all("SELECT * FROM job_questions WHERE job_id=? ORDER BY id", id);
   for (const r of rows) {
     const j = Object.fromEntries(["id", "title", "company", "location", "work_mode", "pay_text", "url", "apply_url",
@@ -531,22 +727,52 @@ export function listIssues() {
       let qs = questions(r.id);
       if (!qs.length && r.status_note) {
         // Older records only have the question in the note: offer it as one free-text question.
-        addQuestions(r.id, [{ label: r.status_note, type: "textarea" }]);
+        insertQuestion(r.id, cleanQuestion({ label: r.status_note, type: "textarea" }));
         qs = questions(r.id);
       }
-      j.questions = qs.map(({ options_json, ...q }) => {
-        const out = { ...q, options: JSON.parse(options_json || "null") };
-        if (q.answer === null && saved[normQ(q.label)] !== undefined) out.suggested = saved[normQ(q.label)];
-        return out;
+      j.questions = qs.map(withOptions).map((q) => {
+        const s = q.answer === null && savedAnswerFor(q.label, saved, q.prompt);
+        return { ...q, prompt: q.prompt || plainer(q.label), ...(s && answerFits(q, s.answer) ? { suggested: s.answer } : {}) };
       });
     }
     if (r.status === "needs_account") {
-      j.domain = domainOf(r.apply_url || r.url);
+      j.account_url = r.account_url || null;
+      j.domain = domainOf(r.account_url || r.apply_url || r.url);
       j.account = one("SELECT email_used, created_at FROM site_accounts WHERE domain=?", j.domain);
     }
+    if (r.status === "blocked") j.kind = blockedKind(r.status_note);
     out[r.status].push(j);
   }
-  return out;
+  const brief = (j) => ({ id: j.id, title: j.title, company: j.company, url: j.apply_url || j.url });
+  // A card takes its wording from the question asked first (an account card its link from the job that waited first),
+  // so it does not change when another job joins it. Cards are listed by their newest job, like the jobs themselves.
+  const byNewest = (list) => {
+    const rank = new Map(list.map((j, i) => [j.id, i]));
+    return (cards) => cards.map((c) => [Math.min(...c.jobs.map((j) => rank.get(j.id))), c]).sort((a, b) => a[0] - b[0]).map(([, c]) => c);
+  };
+  const groups = [];
+  const asked = out.needs_info.flatMap((j) => j.questions.map((q) => [j, q])).sort((a, b) => a[1].id - b[1].id);
+  for (const [j, q] of asked) {
+    let g = groups.find((x) => sameQuestion(x, q));
+    if (!g) groups.push(g = { ids: [], label: q.label, labels: [], prompt: q.prompt, help: q.help, qtype: q.qtype,
+      options: q.options, required: false, answer: null, suggested: q.suggested ?? null, done: true, jobs: [] });
+    g.ids.push(q.id);
+    if (!g.labels.includes(q.label)) g.labels.push(q.label);
+    g.help ??= q.help;
+    g.required ||= !!q.required;
+    g.answer ??= q.answer;
+    g.done &&= q.answer !== null;
+    if (!g.jobs.some((x) => x.id === j.id)) g.jobs.push(brief(j));
+  }
+  // One card per account address: jobs share a card only when their account is made at the same URL.
+  const accounts = new Map();
+  for (const j of [...out.needs_account].reverse()) {
+    const key = accountKey(j) || `job ${j.id}`;
+    if (!accounts.has(key)) accounts.set(key, { domain: j.domain, company: j.company, account: j.account,
+      signup_url: j.account_url || j.apply_url || j.url, note: j.status_note, jobs: [] });
+    accounts.get(key).jobs.push(brief(j));
+  }
+  return { ...out, questions: byNewest(out.needs_info)(groups), accounts: byNewest(out.needs_account)([...accounts.values()]) };
 }
 
 /** answers: [{id, answer, save}]. When every required question of a job is answered, the job is re-queued. */
@@ -559,12 +785,15 @@ export function answerQuestions(answers) {
     val = Array.isArray(val) ? JSON.stringify(val) : val === null || val === undefined || val === "" ? null : String(val);
     run("UPDATE job_questions SET answer=?, answered_at=? WHERE id=?", val, val ? now() : null, q.id);
     jobs.add(q.job_id);
-    if (a.save && val) reuse[normQ(q.label)] = val;
+    if (a.save && val) {
+      reuse[normQ(q.label)] = val;
+      if (q.prompt) reuse[normQ(q.prompt)] = val; // so a form that words it differently still finds it
+    }
   }
   const requeued = [];
   for (const jid of jobs) {
     if (!scalar("SELECT count(*) FROM job_questions WHERE job_id=? AND required=1 AND answer IS NULL", jid)) {
-      run("UPDATE jobs SET status='found', status_note='Answers provided on the Issues tab; ready to retry', updated_at=? " +
+      run("UPDATE jobs SET status='found', status_note='Answers provided on the Needs you tab; ready to retry', updated_at=? " +
         "WHERE id=? AND status='needs_info'", now(), jid);
       requeued.push(jid);
     }
@@ -578,16 +807,20 @@ export function jobAnswers(jobId) {
     saved_answers: loadSettings().custom_answers || {} };
 }
 
-/** The user created an account on the employer site themselves: remember the site and email, re-queue the job. */
+/** The user created an account on the employer site themselves: remember the site and email, and re-queue the job
+ * and every other job waiting on an account at the same address (accountKey). */
 export function markAccount(jobId, emailUsed, note) {
-  const r = one("SELECT url, apply_url FROM jobs WHERE id=?", jobId);
+  const r = one("SELECT url, apply_url, account_url FROM jobs WHERE id=?", jobId);
   if (!r) throw new Error(`no job ${jobId}`);
-  const d = domainOf(r.apply_url || r.url);
+  const d = domainOf(r.account_url || r.apply_url || r.url);
   run("INSERT INTO site_accounts (domain, email_used, created_at, job_id, note) VALUES (?,?,?,?,?) " +
     "ON CONFLICT(domain) DO UPDATE SET email_used=excluded.email_used, note=excluded.note", d, emailUsed, now(), jobId, note);
-  run("UPDATE jobs SET status='found', status_note=?, updated_at=? WHERE id=?",
-    `Account created by the user on ${d} (${emailUsed}). User must be signed in before the agent continues.`, now(), jobId);
-  return { domain: d, requeued: jobId };
+  const ids = [Number(jobId), ...sameAccountIssues(jobId).map((j) => j.id)];
+  for (const id of ids) {
+    run("UPDATE jobs SET status='found', status_note=?, updated_at=? WHERE id=?",
+      `Account created by the user on ${d} (${emailUsed}). User must be signed in before the agent continues.`, now(), id);
+  }
+  return { domain: d, requeued: ids };
 }
 
 export function siteAccount(domainOrUrl) {

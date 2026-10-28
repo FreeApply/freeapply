@@ -113,8 +113,24 @@ export function agentSetStatus(rules, a) {
     throw new RuleError("refused: call freeapply_throttle with this job_id right before submitting; recording 'applied' " +
       "needs that clearance (hard rule)");
   }
-  return store.setStatus(a.job_id, a.status, { note: a.note, method: a.method, confirmation: a.confirmation,
+  // Never ask the user again what they already answered: a stop for questions that all have answers is refused.
+  const asked = a.status === "needs_info" && a.questions?.length ? store.checkQuestions(a.job_id, a.questions) : null;
+  if (asked?.length && asked.every((q) => q.result === "already_answered")) {
+    throw new RuleError("refused: the user already answered every one of these questions, so don't stop for them; fill in " +
+      `these answers and continue: ${asked.map((q) => `"${q.label}" -> ${q.answer}`).join("; ")}`);
+  }
+  if (a.account_url) store.setAccountUrl(a.job_id, a.account_url); // checked before the status changes
+  const before = store.ISSUE_STATUSES.includes(a.status) && job.status === a.status;
+  const out = store.setStatus(a.job_id, a.status, { note: a.note, method: a.method, confirmation: a.confirmation,
     resumePath: a.resume_path, coverPath: a.cover_path, coverText: a.cover_text });
+  if (before) out.already_waiting = true; // the job was already waiting on the user for this
+  if (a.questions?.length) {
+    out.questions = store.addQuestions(a.job_id, a.questions);
+    out.questions_added = out.questions.filter((q) => q.result === "added" || q.result === "grouped").length;
+  }
+  if (a.status === "needs_account") out.same_account = store.sameAccountIssues(a.job_id);
+  if (a.status === "blocked") out.same_site = store.sameSiteIssues(a.job_id, a.status);
+  return out;
 }
 
 /** Drops the settings the agent may never change (terms, sharing choices, integrity records). */
