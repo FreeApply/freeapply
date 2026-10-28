@@ -7,7 +7,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.2** ([notes](release-notes/1.0.2.md)). The app and its legal documents share one version
+Current version: **1.0.3** ([notes](release-notes/1.0.3.md)). The app and its legal documents share one version
 number.
 
 ## What it does

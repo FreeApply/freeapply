@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const VERSION = "1.0.2";
+export const VERSION = "1.0.3";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
