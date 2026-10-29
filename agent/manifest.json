@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "freeapply",
   "display_name": "FreeApply",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies, and shows it all in a local dashboard.",
   "long_description": "FreeApply gives Claude the tools to find jobs that match your settings, apply on employer sites, and log every job and application on your computer. Its workflow is signed: any change to it locks the tools until the official version is restored. Your data stays on your computer except what you choose to share in Settings.",
   "author": {
@@ -27,7 +27,7 @@
   },
   "tools": [
     {
-      "name": "freeapply_status",
+      "name": "freeapply_get_status",
       "description": "Check that FreeApply can run, get a task's signed procedure, the files to upload and which AI model does what"
     },
     {
@@ -55,7 +55,7 @@
       "description": "Check a cover letter or answer for unsupported claims; save a passing letter as a PDF"
     },
     {
-      "name": "freeapply_user_answers",
+      "name": "freeapply_manage_answers",
       "description": "Get or save the user's own answers to form questions"
     },
     {
@@ -75,19 +75,19 @@
       "description": "Report a job site that signed the user out or hit its daily limit"
     },
     {
-      "name": "freeapply_autorun",
-      "description": "Start or finish an unattended run, or report its schedule"
+      "name": "freeapply_manage_autorun",
+      "description": "Keep applying on its own: start or finish an auto-run"
     },
     {
       "name": "freeapply_list_jobs",
       "description": "List tracked jobs"
     },
     {
-      "name": "freeapply_job_stats",
+      "name": "freeapply_get_stats",
       "description": "Job-search statistics"
     },
     {
-      "name": "freeapply_reply_check",
+      "name": "freeapply_check_replies",
       "description": "Start or finish a Gmail reply check"
     },
     {
@@ -95,7 +95,7 @@
       "description": "Record what an employer did, from an email or the user"
     },
     {
-      "name": "freeapply_shared_data",
+      "name": "freeapply_share_data",
       "description": "Preview or send the data the user chose to share"
     }
   ],

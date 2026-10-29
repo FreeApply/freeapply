@@ -10,7 +10,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.5** ([notes](release-notes/1.0.5.md)). The app and its legal documents share one version
+Current version: **1.0.6** ([notes](release-notes/1.0.6.md)). The app and its legal documents share one version
 number.
 
 ## What it does
@@ -43,13 +43,13 @@ data in `~/.freeapply` stays until you delete that folder.
 ## First run
 1. Restart your AI app and say **"Set up FreeApply"**. The dashboard opens.
 2. Read and accept the Terms of Service and Privacy Policy there yourself (18+). Until you do, every agent tool except
-   `freeapply_status` and `freeapply_open_dashboard` refuses to run, and the agent can never accept for you.
+   `freeapply_get_status` and `freeapply_open_dashboard` refuses to run, and the agent can never accept for you.
 3. Fill in **Settings**: résumé (PDF, DOCX, TXT or MD), name and email, desired roles, minimum pay, locations, work
    authorization and the job sites you use. The agent applies nowhere until these are filled.
 4. Sign in to your job sites in the browser your AI app uses, then say **"Find me jobs and apply"**.
 
-With a Gmail connector, setup also schedules the reply check, which stars replies, labels them, or both (your choice
-in Settings).
+Setup ends with that conversation applying on its own until you press Stop in the dashboard; it also checks your email
+for replies every few hours and stars them, labels them, or both (your choice in Settings).
 
 ## Guarantees
 - Facts about you come only from your résumé, your settings and what you tell the agent. It never invents experience.
@@ -100,16 +100,16 @@ linked in the footer. The **Needs you** tab collects what needs you, in plain wo
 
 ## Tools
 18 tools, each with a title, annotations (read-only, destructive, idempotent) and a description of every parameter:
-`freeapply_status` (can FreeApply run, plus the signed procedure for a task), `freeapply_open_dashboard`,
+`freeapply_get_status` (can FreeApply run, plus the signed procedure for a task), `freeapply_open_dashboard`,
 `freeapply_get_settings` (all settings or just the sections a step needs), `freeapply_update_settings` (settings, the
 résumé text and profile, and the AI models scan that picks a model for each part of the work),
 `freeapply_fetch_posting` (fetches and trims postings on your computer to save tokens, with their ATS keywords), `freeapply_claim_job` (claim or
 skip a job, with the duplicate, job-site and pay-floor checks), `freeapply_check_text` (truthfulness check; saves a passing cover letter as a PDF),
-`freeapply_user_answers` (get a job's answers or save a reusable one), `freeapply_find_site_account`,
+`freeapply_manage_answers` (get a job's answers or save a reusable one), `freeapply_find_site_account`,
 `freeapply_clear_to_submit` (clearance before each submit, and the unattended run's budgets), `freeapply_update_job` (your
-side: found to applied), `freeapply_report_site_problem`, `freeapply_autorun` (start or finish unattended runs),
-`freeapply_list_jobs`, `freeapply_job_stats`, `freeapply_reply_check` (frames an email reply check; with an app password saved in Settings it reads, stars and labels the replies itself),
-`freeapply_record_outcome` (what an employer did, from an email or the user), `freeapply_shared_data` (preview or send
+side: found to applied), `freeapply_report_site_problem`, `freeapply_manage_autorun` (start or finish unattended runs),
+`freeapply_list_jobs`, `freeapply_get_stats`, `freeapply_check_replies` (frames an email reply check; with an app password saved in Settings it reads, stars and labels the replies itself),
+`freeapply_record_outcome` (what an employer did, from an email or the user), `freeapply_share_data` (preview or send
 shared data). Removing a job is a dashboard action only (Applications → Remove); the agent has no tool for it.
 Every call is checked against the tool's parameters first: a missing, unknown or wrongly typed parameter returns one
 error naming each problem, and nothing changes.

@@ -17,10 +17,13 @@ const issued = []; // when clearances were issued, so jobs not yet recorded stil
  * unattended run (runId given) the run's own limits come first: time and application budget, the daily cap and the
  * dashboard's Stop button; when one is reached the run must finish (stop_run). */
 export function throttle(rules, method = "external", jobId, runId) {
+  let restart = null;
   if (runId) {
     const run = autorun.check(runId);
     if (!run.go) return { clear: false, stop_run: true, reason: run.reason, applied_this_run: run.applied_this_run ?? null,
-      advice: "do not submit; finish the run with freeapply_autorun action finish" };
+      advice: "do not submit; finish the run with freeapply_manage_autorun action finish" };
+    if (run.restart) restart = { restart: true, restart_advice: "the user saved new settings and wants them used now: " +
+      "submit and record this job, start no other, then finish the run; the next one begins at once" };
   }
   const s = store.loadSettings();
   const cap = rules.max_rate_per_minute || 3;
@@ -36,7 +39,7 @@ export function throttle(rules, method = "external", jobId, runId) {
   const dailyCap = s.automation.daily_cap;
   const clear = recent < limit && (!dailyCap || today < Number(dailyCap));
   const out = { clear, last_minute: recent, limit_per_minute: limit, today, daily_cap: dailyCap ?? null,
-    advice: clear ? "submit now" : "wait and retry; work on the next job meanwhile" };
+    advice: clear ? "submit now" : restart ? "wait and retry" : "wait and retry; work on the next job meanwhile", ...restart };
   if (clear && jobId) {
     const ttl = (rules.clearance_ttl_seconds || 900) * 1000;
     clearances.set(Number(jobId), t + ttl);
@@ -196,7 +199,7 @@ const SETTING_CHOICES = {
 const NULLABLE = { "targets.min_pay": "number", "targets.max_commute_miles": "number", "eligibility.years_experience": "number",
   "eligibility.work_authorized": "boolean", "eligibility.needs_sponsorship": "boolean" };
 const AGENT_FIELDS = { resume: ["text", "profile"] };
-const KEPT_BY = { "gmail.last_check": "freeapply_reply_check sets it when a check finishes",
+const KEPT_BY = { "gmail.last_check": "freeapply_check_replies sets it when a check finishes",
   "gmail.manual_logins": "only the user chooses it, in the dashboard's Settings → Email replies" };
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const kindOf = (v) => (Array.isArray(v) ? "a list of text" : typeof v === "string" ? "text" : typeof v === "boolean" ? "true or false"

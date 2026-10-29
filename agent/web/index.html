@@ -182,6 +182,13 @@ td select{background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:
 .wizbar{height:4px;border-radius:4px;background:var(--line);margin:12px 0 16px;overflow:hidden}
 .wizbar i{display:block;height:100%;background:var(--green);transition:width .2s}
 .wstep>h3{margin-bottom:4px} .wstep>p{margin:0 0 12px;color:var(--muted);font-size:13px}
+/* Settings saved while FreeApply is applying: when the new settings take effect. */
+#when{position:fixed;inset:0;z-index:20;display:none;background:rgba(4,3,10,.86);backdrop-filter:blur(10px);overflow:auto;padding:18px}
+#when.on{display:block}
+.whenbox{max-width:520px;margin:12vh auto 0;background:rgba(18,12,36,.96)} .whenbox h2{margin:0 0 6px;font-size:18px}
+.whenbox>p{margin:0 0 14px;color:var(--muted);font-size:13px}
+.whenbox .opt{display:block;width:100%;text-align:left;margin:0 0 10px;padding:12px 14px}
+.whenbox .opt small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
 /* Collapsed rows (Advanced settings, Data sharing, the wizard's advanced options): one line until opened. */
 details.fold>summary{cursor:pointer;list-style:none;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
 details.fold>summary::-webkit-details-marker{display:none}
@@ -414,7 +421,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
       </div>
       <div class="panel"><h3>Email replies</h3><div class="fields">
         <div class="field full adv"><label>Auto-run</label>
-          <span class="hint">Start and Stop are at the top of every page. FreeApply keeps applying while your AI app is open, and starts again by itself if it stops. Limits are under Advanced.</span>
+          <span class="hint">Start and Stop are at the top of every page. FreeApply keeps applying from a conversation in your AI app while it's open. If it stops without you pressing Stop, tell your AI assistant "set up FreeApply". Limits are under Advanced.</span>
           <div class="kv" id="arInfo"></div></div>
         <div class="field full"><label>Email login</label><div data-email></div></div>
         <div class="field"><label>Check email for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
@@ -447,16 +454,16 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
         </div></div>
         <div class="panel"><h3>Pace and limits</h3><div class="fields">
           <div class="field"><label>Max submits / minute</label><input name="automation.rate_per_minute" type="number" min="1" max="10"></div>
-          <div class="field"><label>Daily cap</label><input name="automation.daily_cap" type="number" min="0" placeholder="none"></div>
-          <div class="field"><label>If it stops, start again every (hours)</label><input name="autorun.every_hours" type="number" min="1" max="24"></div>
-          <div class="field"><label>Stop each run after (minutes)</label><input name="autorun.max_run_minutes" type="number" min="5" placeholder="no limit"></div>
-          <div class="field"><label>Stop each run after (applications)</label><input name="autorun.max_applications" type="number" min="1" placeholder="no limit"></div>
+          <div class="field"><label>Daily cap</label><input name="automation.daily_cap" type="number" min="0" placeholder="none"><span class="hint">Pauses until tomorrow</span></div>
+          <div class="field"><label>Look for new jobs again after (hours)</label><input name="autorun.every_hours" type="number" min="1" max="24"></div>
+          <div class="field"><label>Stop after (minutes)</label><input name="autorun.max_run_minutes" type="number" min="5" placeholder="no limit"></div>
+          <div class="field"><label>Stop after (applications)</label><input name="autorun.max_applications" type="number" min="1" placeholder="no limit"><span class="hint">Both count from when you last pressed Start</span></div>
         </div></div>
         <div class="panel"><h3>Gmail details</h3><div class="fields">
           <div class="field"><label>Check every (hours)</label><input name="gmail.interval_hours" type="number" min="1" max="48"></div>
           <div class="field"><label>Label name</label><input name="gmail.label_name"></div>
           <div class="field full"><label>Count "we received your application" emails</label><select name="gmail.count_acknowledgements" data-bool><option value="false">No, only real replies</option><option value="true">Yes</option></select>
-            <span class="hint">Uses your email login (Settings → Email replies) or your AI app's Gmail connector; FreeApply sets up the schedule on first run.</span></div>
+            <span class="hint">Uses your email login (Settings → Email replies) or your AI app's Gmail connector; FreeApply checks while it's running in your AI app.</span></div>
         </div></div>
         <div class="panel" id="modelsPanel"><h3>AI models</h3>
           <p class="count" id="mdInfo" style="margin:0 0 10px"></p>
@@ -502,6 +509,17 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
   <footer class="legalinks"><span>Your agreements</span><a href="#terms" data-go="terms">Terms of Service</a><a href="#privacy" data-go="privacy">Privacy Policy</a><a href="#disclosures" data-go="disclosures">Disclosures</a><a href="#recruiters" data-go="recruiters">Recruiter Terms</a></footer>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Settings saved while FreeApply is applying: the user picks when the new settings take effect. -->
+<div id="when" role="dialog" aria-modal="true" aria-labelledby="whenTitle">
+  <div class="panel whenbox">
+    <h2 id="whenTitle">FreeApply is applying right now</h2>
+    <p>When should it start using your new settings?</p>
+    <button type="button" class="btn opt" data-when="finish">Complete the run<small>Nothing is interrupted. FreeApply picks up your new settings by its next run.</small></button>
+    <button type="button" class="btn green opt" data-when="now">Stop, update and continue<small>It finishes the job it's on, then starts again right away with your new settings.</small></button>
+    <button type="button" class="btn sm" data-when="cancel">Cancel</button>
+  </div>
+</div>
 
 <!-- Setup wizard: shown after the Terms on a fresh install, before the dashboard. Each step saves as you go. -->
 <div id="wiz" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
@@ -558,7 +576,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
       <section class="wstep" data-step="email"><h3>Your email</h3><p>FreeApply reads your email for employer replies (interview invites, rejections, offers) and tracks them for you. Connect Gmail with an app password: it stays on this computer and your AI assistant never sees it. If you'd rather not, choose "I'll enter all passwords myself": you then sign in to every site yourself, and replies can come through your AI app's Gmail connector.</p>
         <div data-email></div>
       </section>
-      <section class="wstep" data-step="done"><h3>You're set</h3><p>FreeApply now keeps applying on its own while your AI app is open. Tell your AI assistant you're done so it can start. Start and Stop are at the top of every page, you can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
+      <section class="wstep" data-step="done"><h3>You're set</h3><p>FreeApply now keeps applying on its own from your AI app: it begins within seconds, so leave that conversation open (if it doesn't begin, tell your AI assistant "set up FreeApply"). Start and Stop are at the top of every page, you can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
     </form>
     <div class="btnrow"><button type="button" class="btn" id="wBack">Back</button><span style="flex:1"></span>
       <button type="button" class="btn" id="wLater">Finish later</button><button type="button" class="btn green" id="wNext">Next</button></div>
@@ -791,7 +809,7 @@ function renderReplies(){
   $("#repTable tbody").innerHTML = fresh + (rows.length || fresh ? rows.map(r => `<tr><td class="mono">${esc(localStamp(r.received_at||r.recorded_at))}</td>
     <td><b>${esc(r.company||"")}</b>${r.title ? `<div class="sub">${esc(r.title)}</div>` : ""}</td>
     <td><span class="badge b-${esc(r.kind)}">${esc(r.kind)}</span></td><td>${esc(r.subject||"")}${r.summary ? `<div class="sub">${esc(r.summary)}</div>` : ""}</td>
-    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks Gmail on its schedule.</td></tr>`);
+    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks your email every few hours while it's running.</td></tr>`);
 }
 $$("#repTable th").forEach(th => th.onclick = () => { sortR = {k: th.dataset.k, d: sortR.k === th.dataset.k ? -sortR.d : -1}; renderReplies(); });
 
@@ -862,9 +880,20 @@ function readForm(root = $("#sform")){
   if (sites) Object.assign(p.automation ??= {}, readSites(sites));
   return p;
 }
+// Saved while a run is going: the run carries on (new settings by its next run), or ends after the job in hand
+// and starts again with them at once.
+const askWhen = () => new Promise(res => { const d = $("#when"); d.classList.add("on");
+  d.querySelectorAll("[data-when]").forEach(b => b.onclick = () => { d.classList.remove("on"); res(b.dataset.when); }); });
 $("#sform").onsubmit = async e => { e.preventDefault();
-  try { const r = await api("/api/settings", readForm()); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); load(true);
-    toast(r.missing.length ? "Saved. A few required fields left." : "Settings saved. You're ready to go."); } catch (err) { toast(err.message, 1); } };
+  try {
+    const a = await api("/api/autorun").catch(() => null), during = !!a?.running && !a.running.stop_requested;
+    const when = during ? await askWhen() : null;
+    if (when === "cancel") return;
+    const r = await api("/api/settings", {...readForm(), restart_run: when === "now"}); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); load(true);
+    toast(r.missing.length ? "Saved. A few required fields left." : when === "now" ? "Saved. FreeApply finishes the job it's on, then starts again with your new settings."
+      : during ? "Saved. FreeApply picks up your new settings by its next run." : "Settings saved. You're ready to go.");
+    if (during) loadAutorun();
+  } catch (err) { toast(err.message, 1); } };
 const drop = $("#drop"), file = $("#resumeFile");
 drop.onclick = () => file.click();
 ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
@@ -919,12 +948,12 @@ function renderRun(a){
   const r = a.running, pill = $("#runPill"), btn = $("#runBtn");
   const [text, cls, tip] = {
     setup: ["● Setup needed", "warn", "Finish setup and FreeApply starts applying on its own."],
-    off: ["● Stopped", "", a.waiting ? "Press Start and FreeApply begins within seconds."
-      : `Press Start and FreeApply begins ${a.next_run_at ? "by " + hhmm(a.next_run_at) : "the next time your AI app checks in"}, then keeps applying while your AI app is open.`],
-    schedule: ["● Waiting for your AI app", "warn", 'Tell your AI assistant "find and apply to jobs" once so it can start.'],
+    off: [a.stopped_reason ? "● Stopped · limit reached" : "● Stopped", "", (a.stopped_reason ? `Stopped because ${a.stopped_reason}. ` : "")
+      + (a.waiting ? "Press Start and FreeApply begins within seconds." : 'Tell your AI assistant "set up FreeApply" and it starts applying again.')],
+    idle: ["● Not running", "warn", 'FreeApply applies from a conversation in your AI app, and none is running it now. Tell your AI assistant "set up FreeApply" and leave that conversation open.'],
     paused: [/daily cap/.test(a.reason || "") ? "● Paused · daily limit reached" : "● Paused", "warn", "FreeApply starts again by itself when this clears."],
     on: [`● On · looks again ${a.next_run_at ? "at " + hhmm(a.next_run_at) : "soon"}`, "ok", "FreeApply keeps applying while your AI app is open and the computer is awake. It's between searches now and looks for new jobs again at this time."],
-    running: [`● Running${a.activity ? " · " + a.activity : ""}`, "ok", r ? `${r.applied} applied so far. Press Stop to end it before the next job.` : "Press Stop to end it before the next job."],
+    running: [`● Running${r?.restart_requested ? " · switching to your new settings" : a.activity ? " · " + a.activity : ""}`, "ok", r ? `${r.applied} applied so far. Press Stop to end it before the next job.` : "Press Stop to end it before the next job."],
     stopping: ["● Stopping…", "warn", "The run ends before its next job."],
   }[a.state] || ["● …", "", ""];
   pill.textContent = text; pill.className = "pill " + cls; pill.title = tip;
@@ -941,16 +970,16 @@ $("#runBtn").onclick = async () => {
     S.settings.autorun = {...S.settings.autorun, enabled: a.enabled}; renderRun(a);
     toast(act === "stop" ? (a.running ? "Stopped. The run ends before its next job." : "Stopped. FreeApply won't apply on its own until you press Start.")
       : a.waiting ? "Started. FreeApply begins in a few seconds."
-      : a.schedule_created ? `Started. FreeApply begins by ${hhmm(a.next_run_at)} and keeps going while your AI app is open.`
-      : 'Started. Tell your AI assistant "find and apply to jobs" once so it can start.');
+      : 'Started. Tell your AI assistant "set up FreeApply" so it can begin.');
   } catch (err) { toast(err.message, 1); }
 };
 async function loadAutorun(){
   try {
     const a = await api("/api/autorun"), r = a.running;
     renderRun(a);
-    $("#arInfo").innerHTML = `<span>Schedule</span><span>${!a.enabled ? "off" : a.schedule_created ? "set up in your AI app" : "not set up yet: ask your AI assistant to set up FreeApply"}</span>
-      <span>Now</span><span>${r ? `running · ${esc(r.applied)} applied${r.minutes_left != null ? ` · ${esc(r.minutes_left)} min left` : ""}${r.stop_requested ? " · stopping" : ""}` : "between runs"}</span>
+    $("#arInfo").innerHTML = `<span>AI app</span><span>${r || a.waiting || a.activity ? "running FreeApply" : 'not running FreeApply: tell your AI assistant "set up FreeApply"'}</span>
+      <span>Now</span><span>${r ? `running · ${esc(r.applied)} applied${r.minutes_left != null ? ` · ${esc(r.minutes_left)} min left` : ""}${r.stop_requested ? " · stopping" : ""}`
+        : a.next_run_at ? `between searches · looks again at ${hhmm(a.next_run_at)}` : "between searches"}</span>
       ${a.recent?.length ? `<span>Last run</span><span>${esc(a.recent[0].summary)}</span>` : ""}`;
     const out = (a.sites || []).filter(x => x.signed_out_at);
     $("#siteWarn").style.display = out.length ? "block" : "none";

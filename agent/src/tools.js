@@ -31,8 +31,8 @@ const STATUS_IDS = Object.keys(store.STATUSES), OUTCOME_IDS = Object.keys(store.
 const listed = (o) => Object.entries(o).map(([k, v]) => `${k} (${v})`).join(", ");
 
 // Tools usable while the workflow is locked (so the user can be told why), and before the Terms are accepted.
-const WORKFLOW_UNGATED = new Set(["freeapply_status", "freeapply_open_dashboard"]);
-const CONSENT_UNGATED = new Set(["freeapply_status", "freeapply_open_dashboard"]);
+const WORKFLOW_UNGATED = new Set(["freeapply_get_status", "freeapply_open_dashboard"]);
+const CONSENT_UNGATED = new Set(["freeapply_get_status", "freeapply_open_dashboard"]);
 
 const scalars = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v === null || ["number", "string", "boolean"].includes(typeof v)));
 
@@ -40,30 +40,38 @@ const scalars = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v 
 // (and which neighbour to use instead), and what it returns or changes.
 export const TOOLS = [
   // ── session start ──
-  ["freeapply_status", "Check FreeApply and get a procedure", READ,
+  ["freeapply_get_status", "Check FreeApply and get a procedure", READ,
     desc(
       "Whether FreeApply can work now, plus the signed step-by-step procedure for a task. About FreeApply itself " +
-        "(user details: freeapply_get_settings; job search: freeapply_job_stats).",
-      "Use: first in every session and before each task; again only to re-check after the user acts. Works while " +
-        "locked or the Terms are unaccepted, so it can say why.",
-      "Behavior: changes no user data. Creates the data folder on first run, starts the local dashboard if needed, " +
-        "refreshes the résumé copy in the documents folder.",
+        "(user details: freeapply_get_settings; job search: freeapply_get_stats).",
+      "Use: first in every session and before each task; with wait after asking the user to accept the Terms or " +
+        "finish setup in the dashboard. Works while locked or the Terms are unaccepted, so it can say why.",
+      "Behavior: read-only: reports what FreeApply set up when it started (data folder, database, dashboard, the " +
+        "résumé copy to upload). wait holds the call up to 10 minutes until the Terms are accepted and setup is " +
+        "complete, and returns within seconds of that.",
+      "Parameters: none for status only; procedure adds that task's signed steps; lane (with procedure " +
+        "freeapply-apply) is for a helper: only the hard rules and that lane's steps, with a short status; wait as " +
+        "above, with or without procedure.",
       "Returns: workflow {ok, problem}, terms {ok}, setup_complete, missing, sites [{id, name, ready}] (chosen job " +
         "sites), autorun, update, dashboard (URL), data_dir, documents {dir, resume, cover_letters}, stats, " +
         "procedures, models {can_delegate, rescan, levels, lanes, unfilled} (each level and lane {model, effort, " +
         "source}; model current = your own model does it). With procedure also procedure {name, description, text, " +
-        "workflow_version, workflow_hash}, null while locked.",
+        "workflow_version, workflow_hash}, null while locked. wait_again true: a wait ran out first; call again.",
       "Next: workflow.ok false: tell the user why, stop. terms.ok or setup_complete false: follow freeapply-setup. " +
         "models.rescan true: do its AI models step first."),
-    S({ procedure: oneOf(["freeapply-setup", "freeapply-apply", "freeapply-replies"], "Adds this task's procedure: freeapply-setup " +
-      "(first run; Terms or settings missing), freeapply-apply (find jobs, apply), freeapply-replies (Gmail reply check). Omit for status only."),
-      lane: oneOf(["scout", "writer", "applier"], "A helper's lane of freeapply-apply: only the hard rules and that lane's steps, with a short status. Optional; the agent that starts helpers omits it.") }),
+    S({ procedure: oneOf(["freeapply-setup", "freeapply-apply", "freeapply-replies"], "freeapply-setup (first run; Terms or " +
+      "settings missing; starting auto-run), freeapply-apply (find jobs, apply) or freeapply-replies (email reply check)."),
+      lane: oneOf(["scout", "writer", "applier"], "A helper's lane of freeapply-apply; the agent that starts helpers omits it."),
+      wait: { type: "boolean", description: "Hold the call until the Terms are accepted and setup is complete (up to 10 minutes)." } }),
     async (a, ctx) => {
+      const waited = a.wait ? await autorun.holdUntil(() => (sharing.consentStatus().ok && !store.missingFields().length ? { done: true }
+        : { reason: "the Terms or setup are not done" }), { signal: ctx.signal, progress: ctx.progress }) : null;
       const { recent, ...auto } = autorun.status();
       const b = ctx.guard.bundle || {}, procs = b.procedures || {};
-      const out = { ...store.bootstrap(), workflow: ctx.guard.status, terms: sharing.consentStatus(), dashboard: await dashboard.start(),
-        sites: store.siteReadiness(), autorun: auto, update: updater.info(), documents: store.documentsInfo(),
+      const out = { ...store.installInfo(), workflow: ctx.guard.status, terms: sharing.consentStatus(), dashboard: await dashboard.url(),
+        sites: store.siteReadiness(), autorun: auto, update: updater.info(), documents: store.documentsInfo(undefined, false),
         stats: scalars(store.stats()), procedures: Object.keys(procs), models: models.resolve({ rules: ctx.rules(), workflow: b.version ?? null }) };
+      if (waited && !waited.done) out.wait_again = waited.wait_again;
       if (a.procedure) {
         const p = ctx.guard.status.ok ? procs[a.procedure] : null;
         if (ctx.guard.status.ok && !p) throw new Error(`no procedure ${a.procedure}; available: ${Object.keys(procs).join(", ")}`);
@@ -80,15 +88,16 @@ export const TOOLS = [
     }],
   ["freeapply_open_dashboard", "Open the dashboard in the browser", READ,
     desc(
-      "Opens the local FreeApply dashboard in the user's browser, one tab (freeapply_status only reports its URL).",
+      "Opens the local FreeApply dashboard in the user's browser, one tab (freeapply_get_status only reports its URL).",
       "Use: when the user must act there: accept the Terms, fill settings, answer questions waiting on them, review " +
         "applications and replies. Not for reading data: other tools return it.",
       "Behavior: changes no data. Starts the dashboard if needed at http://127.0.0.1:7878 or the next free port; " +
         "reachable only from this computer.",
+      "Parameters: tab, the page to open: overview (default; shows the Terms until they're accepted), settings (setup " +
+        "fields), issues (Needs you: questions, sign-ups), applications or replies.",
       "Returns: {url, opened}. url null: it couldn't start (no free port); tell the user. opened false with a url: " +
         "no browser launched; give the user the url."),
-    S({ tab: oneOf(["overview", "applications", "replies", "issues", "settings"], "Page: overview (default; shows the Terms until " +
-      "accepted), settings (setup fields), issues (Needs you: questions, sign-ups), applications, replies.") }),
+    S({ tab: oneOf(["overview", "applications", "replies", "issues", "settings"], "The page to open (default overview).") }),
     async (a) => {
       const url = await dashboard.start();
       const opened = url ? await dashboard.openBrowser(url + (a.tab ? `#${a.tab}` : "")) : false;
@@ -98,19 +107,22 @@ export const TOOLS = [
   // ── the user's settings and résumé ──
   ["freeapply_get_settings", "Read the user's settings", READ,
     desc(
-      "The user's settings: who they are, what they seek, how FreeApply should work; the facts about the user " +
-        "(single form answers: freeapply_user_answers; whether FreeApply can run: freeapply_status).",
-      "Use: once per session or helper, before scoring jobs or filling a form. With the résumé text and the user's " +
+      "Reads the user's settings: who they are, what they seek and how FreeApply should work. Single form answers: " +
+        "freeapply_manage_answers; whether FreeApply can run: freeapply_get_status.",
+      "Use: once per session or helper, and again after each auto-run go, before scoring jobs or filling a form. " +
+        "With the résumé text and the user's " +
         "own words, the only source of facts about the user: never invent beyond it. To change: " +
         "freeapply_update_settings.",
       "Behavior: read-only; never includes installation secrets.",
-      "Returns: {settings, missing}. Sections: profile, targets, eligibility, resume (file paths, text, profile), " +
+      "Parameters: sections, the sections to return (default all, named under Returns): ask only for what the step " +
+        "needs, e.g. [\"profile\", \"eligibility\"] for a form, and leave out resume, the largest, unless you need its text.",
+      "Returns: {settings, missing}. Sections: profile, targets, eligibility, resume (file paths, text, profile; the " +
+        "user adds and replaces résumé files in the dashboard), " +
         "cover_letter, automation, autorun, gmail, custom_answers, models, model_choices, sharing (choices only). " +
         "missing: required fields still empty [{key, label}]; while non-empty, apply nowhere: open the settings tab " +
         "(freeapply_open_dashboard) and ask the user to fill them.",
       "Errors: an unknown section; the message lists valid ones."),
-    S({ sections: list("Sections to return (default all), e.g. [\"profile\", \"eligibility\"] for a form; omit resume, the " +
-      "largest, unless you need its text.") }),
+    S({ sections: list("Section names to return (default all).") }),
     (a) => {
       const all = store.publicSettings(store.loadSettings());
       const bad = (a.sections || []).filter((k) => !(k in all));
@@ -120,22 +132,24 @@ export const TOOLS = [
     }],
   ["freeapply_update_settings", "Save settings and résumé", SET,
     desc(
-      "Saves what the user told you, the résumé's text and profile (setup) and the AI models scan: the settings " +
-        "themselves (single form answers: freeapply_user_answers; reading: freeapply_get_settings).",
+      "Changes the user's settings: facts and preferences the user states, the résumé's text and profile (setup), " +
+        "and the AI models scan. Reading: freeapply_get_settings; single form answers: freeapply_manage_answers.",
       "Use: when the user states a fact or preference, in setup's résumé step, in the AI models step. Never fill a " +
         "field the user didn't give you.",
       "Behavior: overwrites the sent fields, no undo. Deep merge: only sent fields change, nested objects merge, " +
         "lists are replaced whole. User-only sections (legal, sharing, automation, autorun, onboarding, integrity, " +
         "model_choices) are skipped and listed in ignored. All or nothing: one wrong field saves nothing.",
+      "Parameters: patch, nested by section with the names freeapply_get_settings returns, e.g. {\"targets\": " +
+        "{\"min_pay\": 60000}}. Writable: profile, targets, eligibility, cover_letter, custom_answers (one at a time: " +
+        "freeapply_manage_answers), gmail (not last_check or manual_logins); resume only text and profile {headline, skills, titles, education, certifications}, taken " +
+        "from the résumé text alone; models only the scan {app, current, can_delegate, available, efforts}, read from " +
+        "your own tools, which replaces the last one.",
       "Returns: {changed, ignored, setup_complete, missing}; after a scan also models (model and effort chosen per " +
         "level).",
       "Errors: nothing writable, unknown section or field, wrong type, value outside its choices (e.g. " +
         "cover_letter.length short|standard|long), résumé files (the user adds them in the dashboard), malformed " +
         "scan; the message names every problem."),
-    S({ patch: { type: "object", description: "Fields to change, nested by section with freeapply_get_settings' names, e.g. " +
-      "{\"targets\": {\"min_pay\": 60000}}. resume: only text and profile {headline, skills, titles, education, certifications}, " +
-      "from the résumé text alone. models: the scan {app, current, can_delegate, available, efforts}, read from your own " +
-      "tools; replaces the last scan." } }, ["patch"]),
+    S({ patch: { type: "object", description: "Fields to change, nested by section." } }, ["patch"]),
     (a, ctx) => {
       const keys = Object.keys(a.patch || {});
       const allowed = rules.agentSettingsPatch(ctx.rules(), a.patch);
@@ -154,11 +168,14 @@ export const TOOLS = [
     desc(
       "Fetches one job posting from the user's computer, trimmed: description, form questions, suggested answers, " +
         "skills asked. Costs few tokens next to the browser, which you still use to fill and submit the form.",
-      "Use: read each posting before scoring or applying. Not for search-result or sign-in pages: read those in the " +
-        "browser.",
+      "Use: read each posting you found before scoring or applying. FreeApply has no job search of its own: search " +
+        "the user's job sites in the browser. Not for search-result or sign-in pages: read those in the browser.",
       "Behavior: read-only; one web request. Greenhouse, Lever, Ashby via their public APIs, other sites as page " +
         "text. Public http(s) only: an address on this computer or a local network, or a redirect to one, is refused. " +
         "Remembered this session, so freeapply_claim_job keeps its keywords.",
+      "Parameters: url, the posting or its application form; max_chars caps only the description (default 6000, at " +
+        "least 500; description_chars tells you when it was cut); source, the job site where you found it (e.g. " +
+        "linkedin), picks the saved answers meant for that site.",
       "Returns: ats, title, company, location, work_mode, pay, description, description_chars (full length), " +
         "questions [{label, required, type, options}], suggested_answers (from settings and saved answers; answer " +
         "anything else only from the résumé or the user), keywords {matched, missing, coverage}: use matched in the " +
@@ -167,7 +184,7 @@ export const TOOLS = [
         "freeapply_claim_job."),
     S({ url: str("The job page or its application form."),
       max_chars: int("Description cap in characters (default 6000).", { minimum: 500, default: 6000 }),
-      source: str("Job site id where found, e.g. linkedin; picks the saved answers meant for that site.") }, ["url"]),
+      source: str("Job site id where found, e.g. linkedin.") }, ["url"]),
     async (a, ctx) => {
       const d = await fetchPosting(a.url, a.max_chars || 6000, a.source);
       d.keywords = rules.postingKeywords(ctx.rules(), d.fullText);
@@ -184,10 +201,12 @@ export const TOOLS = [
       "Behavior, first match wins: posting id already tracked: returns that job (existing true, nothing added); job " +
         "site the user didn't choose, or signed out or paused: refused (refused says why, sites lists ready ones); " +
         "same company and title as an applied job: refused as a repost; posted pay below the user's minimum: saved " +
-        "as skipped (rule pay_floor). Else added.",
+        "as skipped (rule pay_floor). Otherwise the job is added. A refused or existing claim changes nothing, so " +
+        "repeating the call is safe.",
       "Returns: {job_id, existing, status, rule, earlier}. earlier: up to 20 other jobs at the company [{id, title, " +
         "company, status, same_title}]; if an applied one is clearly the same role under another title, mark this one " +
-        "skipped (freeapply_update_job).",
+        "skipped (freeapply_update_job). restart true (auto-run): the user saved new settings and wants them used now: " +
+        "don't work this job; the run finishes and starts again.",
       "Errors: a missing title or company."),
     S({ title: str("As posted."), company: str("The employer as posted; not a staffing firm, when you can tell."),
       location: str("As posted."), work_mode: str("remote, hybrid or onsite, as posted."),
@@ -203,7 +222,10 @@ export const TOOLS = [
       status_note: str("For skipped: why, one plain sentence."),
       source: str("Where found: job site id (linkedin, indeed, company_sites, ...) or referral; tells the job site like url."),
       external_id: str("The posting's id on its source site; pass it whenever shown: finds the posting again and catches reposts.") }, ["title", "company"]),
-    (a, ctx) => rules.claimJob(ctx.rules(), a)],
+    (a, ctx) => {
+      const out = rules.claimJob(ctx.rules(), a);
+      return autorun.restartRequested() ? { ...out, restart: true } : out;
+    }],
 
   // ── applying ──
   ["freeapply_check_text", "Check text and save the cover letter", { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -216,12 +238,11 @@ export const TOOLS = [
       "Behavior: flags every skill, tool, number or claim the résumé, settings, highlights and saved answers don't " +
         "support. Without save, changes nothing. With save, a passing letter becomes a PDF in the documents folder, " +
         "kept with the job; a failing one is never saved; saving again replaces the file; refused once the job is " +
-        "applied.",
+        "applied. Until setup has stored the résumé's text, most claims are reported unsupported.",
       "Returns: {ok, problems} (plain sentences: fix, remove or ask the user). With job_id also keywords {used, " +
         "unused}: the posting's supported skills this text uses / could still use. With save also file {path, name, " +
         "bytes}, or note (why not saved).",
-      "Errors: save without kind cover_letter and job_id; unknown job_id. Résumé never saved: most claims are " +
-        "reported unsupported."),
+      "Errors: save without kind cover_letter and job_id; unknown job_id."),
     S({ text: str("The letter or answer, exactly as you will type or attach it."),
       kind: oneOf(["cover_letter", "answer"], "cover_letter: also checks the user's length, sign-off, leftover placeholders and " +
         "that the company is named. answer (default): facts only."),
@@ -245,10 +266,10 @@ export const TOOLS = [
       }
       return out;
     }],
-  ["freeapply_user_answers", "Get or save the user's answers", { ...SET, idempotentHint: true },
+  ["freeapply_manage_answers", "Get or save the user's answers", { ...SET, idempotentHint: true },
     desc(
       "Gets or saves the user's own answers to specific form questions, so you never guess one (general details: " +
-        "freeapply_get_settings). Asks the user nothing new (that is freeapply_update_job needs_info).",
+        "freeapply_get_settings). A new question for the user goes through freeapply_update_job status needs_info instead.",
       "Use: get before retrying a job the user re-queued from the Needs you tab; save when the user answers a " +
         "question in this conversation, for later forms. Save only the user's own words: saved answers count as " +
         "facts in freeapply_check_text.",
@@ -257,8 +278,9 @@ export const TOOLS = [
       "Returns: get {job_id, answers: [{label, answer}] the user gave for this job, saved_answers: {question: " +
         "reusable answer}, cover_letter: the job's saved letter {path, text} (text: for a text-box letter field) or " +
         "null}. save {label, saved, removed, saved_answers}.",
-      "Errors: get without job_id or with an unknown one; save without label; another action."),
-    S({ action: oneOf(["get", "save"], "get: a job's answers and saved letter; save: one reusable answer."),
+      "Errors: get without job_id or with an unknown one; save without label; an action other than get or save."),
+    S({ action: oneOf(["get", "save"], "get (read-only): a job's answers and saved letter; save (writes): one reusable " +
+      "answer the user just gave."),
       job_id: { ...JOB_ID, description: "Required for get." },
       label: str("Required for save: the question as forms word it, e.g. \"Are you willing to relocate?\"."),
       answer: str("For save: the user's own words; empty removes the saved answer.") }, ["action"]),
@@ -276,31 +298,36 @@ export const TOOLS = [
       "Use: when an application form asks you to sign in or create an account. Not for signing in or up: FreeApply " +
         "stores no passwords and you never type one.",
       "Behavior: read-only. The user records the accounts they make on the dashboard's Needs you tab.",
+      "Parameters: site, the host the sign-in form is on, or any URL there. It is reduced to the domain without " +
+        "www. and matched exactly, so careers.example.com and example.com are different sites: pass the one the form " +
+        "is on.",
       "Returns: known account {domain, email_used, created_at, job_id, note}: ask the user to sign in in the " +
         "browser, then continue in their session. None {domain, account: null}: freeapply_update_job status " +
         "needs_account, account_url = the sign-up page.",
       "Errors: a site that isn't a domain or web address."),
-    S({ site: str("Domain or any URL on it, e.g. careers.example.com; reduced to the domain without www. and matched exactly " +
-      "(careers.example.com and example.com differ).") }, ["site"]),
+    S({ site: str("Domain or any URL on it, e.g. careers.example.com.") }, ["site"]),
     (a) => store.siteAccount(a.site)],
   ["freeapply_clear_to_submit", "Get clearance to submit", ADD,
     desc(
-      "Go-ahead for one submit after checking the pace, the user's limits and, in an unattended run, its budgets. " +
+      "Go-ahead for one submit after checking the pace, the user's limits and, in auto-run, the Stop button. " +
         "Comes right before the submit; freeapply_update_job refuses applied without its clearance.",
       "Use: right before every submit, with job_id. Not early, not for a job you won't submit now: each clearance " +
         "counts toward the per-minute pace at once.",
-      "Behavior: at most 3 submits a minute (or the user's slower setting), the user's daily cap and, for " +
-        "easy_apply, whether one-click apply is allowed. A clearance: one job, 15 minutes, used up when applied is " +
-        "recorded; asking again for the same job issues a new one; kept only while FreeApply runs.",
+      "Behavior: at most 3 submits a minute (or the user's slower setting) and the user's daily cap. A clearance: " +
+        "one job, 15 minutes, used up when applied is recorded; asking again for the same job issues a new one; kept " +
+        "only while FreeApply runs.",
+      "Parameters: job_id ties the clearance to that one job (without it you only see the pace). method: external " +
+        "(employer or ATS form, the default), easy_apply or email; the pace and daily cap count submits by that " +
+        "method, and easy_apply also needs one-click apply allowed in Settings. run_id, only in auto-run (from freeapply_manage_autorun start), adds the " +
+        "user's Stop and limits, and counts as the run checking in.",
       "Returns: {clear, advice, last_minute, limit_per_minute, today, daily_cap}, plus clearance {job_id, " +
         "expires_at} when clear. clear false: don't submit; prepare the next job, call again later. refused: " +
         "one-click apply is off; apply on the employer's site or skip the job. stop_run true (with reason): the run " +
-        "must end now: freeapply_autorun action finish."),
-    S({ job_id: { ...JOB_ID, description: "The job about to be submitted; without it you only see the pace." },
-      method: oneOf(["external", "easy_apply", "email"], "How you will submit: external (employer or ATS form; default), easy_apply (a job board's " +
-        "one-click apply; refused while one-click apply is off) or email."),
-      run_id: str("Unattended run only: the run_id from freeapply_autorun start; first checks that run's limits and the " +
-        "dashboard's Stop button, and keeps the run alive.") }),
+        "must end now: freeapply_manage_autorun action finish. restart true: the user saved new settings and wants them used " +
+        "now: submit and record this job, start no other, finish the run; the next begins at once."),
+    S({ job_id: { ...JOB_ID, description: "The job about to be submitted." },
+      method: oneOf(["external", "easy_apply", "email"], "How you will submit (default external)."),
+      run_id: str("Auto-run only: the run_id from freeapply_manage_autorun start.") }),
     (a, ctx) => rules.throttle(ctx.rules(), a.method || "external", a.job_id, a.run_id)],
   ["freeapply_update_job", "Update a job's application status", SET,
     desc(
@@ -350,46 +377,49 @@ export const TOOLS = [
         "again changes nothing; only the user can mark a site ready.",
       "Returns: {site, status, sites} (each chosen site with ready).",
       "Errors: a site the user didn't choose."),
-    S({ site: oneOf(SITE_IDS, "Job site id, as freeapply_status lists it in sites."),
+    S({ site: oneOf(SITE_IDS, "Job site id, as freeapply_get_status lists it in sites."),
       status: oneOf(["signed_out", "limit_reached"], "signed_out: a sign-in page, or the site says you're signed out. " +
         "limit_reached: the site's own daily limit, e.g. \"You reached today's Easy Apply limit\".") }, ["site", "status"]),
     (a) => {
       store.markSite(a.site, a.status);
       return { site: a.site, status: a.status, sites: store.siteReadiness() };
     }],
-  ["freeapply_autorun", "Start or finish an unattended run", ADD,
+  ["freeapply_manage_autorun", "Start or finish an auto-run", ADD,
     desc(
-      "Starts and finishes unattended (scheduled) runs and records the schedule, itself a scheduled task in the " +
-        "user's AI app (freeapply_status only shows the run state).",
-      "Use: start at the beginning of every scheduled run, finish at its end, also when stopping early; " +
-        "schedule_created or schedule_removed after you create or delete the scheduled task, so the dashboard shows " +
-        "it. Not in a session the user runs by hand.",
-      "Behavior: start opens a run only when none is going (a run checks in with each job-work tool call and " +
-        "freeapply_clear_to_submit; 15 minutes without one counts as ended), else go false. A run continues until nothing is left to apply to; " +
-        "freeapply_clear_to_submit with the run_id ends it when a limit is reached or the user presses Stop. start " +
-        "with wait: while auto-run is off only because the user pressed Stop, holds the call up to 10 minutes and " +
-        "returns as soon as they press Start (one session waits; another gets go false at once). finish releases the " +
-        "run; harmless on a run that already ended.",
-      "Returns: start {go: true, run_id, minutes (time limit, null: none), max_applications, sites} or {go: false, reason} (auto-run off, " +
-        "Terms or setup missing, daily cap reached, another run going or waiting), plus wait_again true when a wait " +
-        "timed out with auto-run still off: call start with wait again; any other go false: stop at once, quietly. finish " +
-        "{finished, applied_this_run}, null for a run no longer active. schedule_created/schedule_removed " +
-        "{schedule_created}.",
-      "Errors: finish without run_id; another action."),
-    S({ action: oneOf(["start", "finish", "schedule_created", "schedule_removed"], "start or finish a run; schedule_created or " +
-      "schedule_removed report the scheduled task."),
-      run_id: str("Required for finish: the run_id start returned."),
-      wait: { type: "boolean", description: "For start, in a scheduled run: if the user turned auto-run off, wait for them to press Start." },
-      summary: str("For finish: one line on the run, e.g. \"applied 4, needs you 2\" (up to 500 characters).") }, ["action"]),
+      "Keeps FreeApply applying on its own from this session, with no scheduled task: start waits until something " +
+        "is due, finish ends a run (freeapply_get_status only shows the run state).",
+      "Use: auto-run mode of freeapply-apply, which setup's last step enters: start with wait (takeover on the first " +
+        "call), finish after each run, then start again. Not in a session the user runs by hand.",
+      "Behavior: start with wait holds the call up to 10 minutes while nothing is due (auto-run stopped by the " +
+        "user's Stop or a limit in Settings, the rest after a search found nothing new, the daily cap) and returns " +
+        "as soon as something is, within seconds of the user pressing Start. One session runs it at a time. A run " +
+        "checks in with each job-work tool call and freeapply_clear_to_submit (15 minutes without one counts as " +
+        "ended); freeapply_clear_to_submit with the run_id ends it at a hard stop. finish releases the run and starts " +
+        "the rest (autorun.every_hours), or none when the user asked for a restart with new settings; harmless on a run " +
+        "that already ended.",
+      "Parameters: action start or finish. wait (start): hold as above; without it start answers at once. takeover " +
+        "(start with wait): only on the call right after the user asked for setup or to keep applying: it presses " +
+        "Start (clears a Stop, a reached limit and the rest) and makes this session the runner; the session it " +
+        "replaced gets replaced at its next start. run_id (finish): the run start returned. summary (finish): one " +
+        "line shown in the dashboard's run history.",
+      "Returns: start {go: true, run_id, minutes (left before the time limit, null: none), max_applications, sites}; " +
+        "{go: false, replies_due: true}: do freeapply-replies, then start again; {go: false, needs_user: terms|setup}: " +
+        "ask the user (freeapply_open_dashboard), freeapply_get_status with wait, then start again; {go: false, wait_again: " +
+        "true}: start again; {go: false, replaced: true} or any other go false: end quietly. finish {finished, " +
+        "applied_this_run}, null for a run no longer active.",
+      "Errors: finish without run_id; an action other than start or finish."),
+    S({ action: oneOf(["start", "finish"], "start a run (with wait: when one is due); finish it."),
+      run_id: str("Required for finish."),
+      wait: { type: "boolean", description: "For start in auto-run mode: hold until something is due." },
+      takeover: { type: "boolean", description: "For start with wait: the call right after the user asked to start." },
+      summary: str("For finish: e.g. \"applied 4, needs you 2\" (up to 500 characters).") }, ["action"]),
     (a, ctx) => {
       switch (a.action) {
-        case "start": return a.wait ? autorun.startOrWait({ signal: ctx.signal, progress: ctx.progress }) : autorun.start();
+        case "start": return a.wait ? autorun.startOrWait({ signal: ctx.signal, progress: ctx.progress, takeover: !!a.takeover }) : autorun.start();
         case "finish":
           if (!a.run_id) throw new Error("run_id is required for finish: pass the run_id that start returned");
           return autorun.finish(a.run_id, a.summary);
-        case "schedule_created": return autorun.scheduleReported(true);
-        case "schedule_removed": return autorun.scheduleReported(false);
-        default: throw new Error("action must be start, finish, schedule_created or schedule_removed");
+        default: throw new Error("action must be start or finish");
       }
     }],
 
@@ -397,22 +427,26 @@ export const TOOLS = [
   ["freeapply_list_jobs", "List tracked jobs", READ,
     desc(
       "Lists the user's tracked jobs, most recent activity first (submitted, else updated, else found): the jobs " +
-        "themselves (totals and rates: freeapply_job_stats).",
-      "Use: to find a job_id or answer questions about particular jobs. Not for adding or changing jobs " +
-        "(freeapply_claim_job, freeapply_update_job).",
-      "Behavior: read-only. Filters combine.",
+        "themselves (totals and rates: freeapply_get_stats).",
+      "Use: to find a job_id, look up one job by job_id, or answer questions about particular jobs. Not for adding " +
+        "or changing jobs (freeapply_claim_job, freeapply_update_job). Removing a job is the user's, in the dashboard.",
+      "Behavior: read-only. Filters combine: a job must match all given. limit and offset page through the same " +
+        "order (default 200 from 0); a page shorter than limit is the last.",
+      "Parameters: job_id returns just that job (empty if unknown); status and outcome match exactly; search finds " +
+        "text in the title, company or location, ignoring case.",
       "Returns: [{id, title, company, location, work_mode, pay_text, pay_min, pay_max, url, apply_url, fit_score, " +
         "status, status_note, outcome, outcome_at, source, found_at, updated_at, method, submitted_at, confirmation, " +
         "resume_path, cover_path, reply_count}]; empty when nothing matched."),
-    S({ status: oneOf(STATUS_IDS, "Exact status filter."), outcome: oneOf(OUTCOME_IDS, "Exact employer-outcome filter."),
-      search: str("Text in the title, company or location, ignoring case."),
-      limit: int("Most jobs to return (default 200); fewer returned means the end.", { minimum: 1, maximum: 2000, default: 200 }),
-      offset: int("Jobs to skip, for the next page (default 0).", { minimum: 0, default: 0 }) }),
-    (a) => store.listJobs(a.status, a.outcome, a.search, a.limit || 200, a.offset || 0)],
-  ["freeapply_job_stats", "Get job-search statistics", READ,
+    S({ job_id: { ...JOB_ID, description: "One job by its id." },
+      status: oneOf(STATUS_IDS, "Exact status filter."), outcome: oneOf(OUTCOME_IDS, "Exact employer-outcome filter."),
+      search: str("Text to find."),
+      limit: int("Most jobs to return (default 200).", { minimum: 1, maximum: 2000, default: 200 }),
+      offset: int("Jobs to skip (default 0).", { minimum: 0, default: 0 }) }),
+    (a) => store.listJobs(a.status, a.outcome, a.search, a.limit || 200, a.offset || 0, a.job_id)],
+  ["freeapply_get_stats", "Get job-search statistics", READ,
     desc(
       "The user's job search in numbers: applications, replies, interviews, offers, rates (individual jobs: " +
-        "freeapply_list_jobs; whether FreeApply can run: freeapply_status).",
+        "freeapply_list_jobs; whether FreeApply can run: freeapply_get_status).",
       "Use: to report progress, e.g. when wrapping up a session. Not for finding a particular job.",
       "Behavior: read-only, cheap: counted fresh from the local database each call, nothing cached. No parameters.",
       "Returns: tracked, applied, applied_today, queued, needs_you (jobs waiting on the user), interviews, offers, " +
@@ -420,11 +454,11 @@ export const TOOLS = [
         "not counted), avg_fit, last_reply_check (when the last Gmail reply check finished), counts by_status, " +
         "by_outcome, by_method, daily (applications per day), top_companies, top_titles, top_jobs."),
     S(), () => store.stats()],
-  ["freeapply_reply_check", "Run a reply check: plan, read, mark, finish", { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  ["freeapply_check_replies", "Run a reply check: plan, read, mark, finish", { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     desc(
-      "Begins and ends a reply check (the freeapply-replies procedure) and, when the user saved an email login in " +
-        "Settings, reads and marks their mailbox itself. Frames the check (each email is recorded with " +
-        "freeapply_record_outcome).",
+      "Runs one email reply check (the freeapply-replies procedure), always beginning with action start, and, when " +
+        "the user saved an email login in Settings, reads and marks their mailbox itself. Each email found is " +
+        "recorded with freeapply_record_outcome.",
       "Use: start first; then read (start's mail.reader freeapply) or the Gmail connector (connector); mark after " +
         "recording each email read returned; finish once everything found is recorded.",
       "Behavior: start: read-only, repeatable. read: signs in with the app password kept on this computer (you never " +
@@ -436,8 +470,10 @@ export const TOOLS = [
         "submitted_at}], known_message_ids (already recorded)}. read {emails: [{gmail_message_id, gmail_thread_id, " +
         "sender, subject, received_at, text}] newest first, already-recorded left out, count}. mark {mail_action} " +
         "(for freeapply_record_outcome). finish {last_check}.",
-      "Errors: another action; read or mark without a saved email login; the mail server refusing the login."),
-    S({ action: oneOf(["start", "read", "mark", "finish"], "start: the plan; read: the mailbox; mark: star or label one email; finish: the check is done."),
+      "Errors: an action other than start, read, mark or finish; read or mark without a saved email login; the mail " +
+        "server refusing the login."),
+    S({ action: oneOf(["start", "read", "mark", "finish"], "start (always first): the plan; read: the mailbox; mark: star or label one " +
+      "email; finish (always last): the check is done."),
       gmail_message_id: str("Required for mark: the email's id, from read."),
       kind: { type: "string", enum: OUTCOME_IDS, description: "Required for mark: the outcome you recorded for the email." } }, ["action"]),
     async (a) => {
@@ -464,7 +500,7 @@ export const TOOLS = [
   ["freeapply_record_outcome", "Record what an employer did", { ...ADD, idempotentHint: true },
     desc(
       "Records what an employer did with an application (your side, e.g. applied or skipped: freeapply_update_job).",
-      "Use: for each employer email found in a reply check, between freeapply_reply_check start and finish, and when " +
+      "Use: for each employer email found in a reply check, between freeapply_check_replies start and finish, and when " +
         "the user tells you about a call or corrects an outcome. Not for your own steps.",
       "Behavior: with an email (gmail_message_id): stores it; raises the job's outcome only if this email ranks " +
         "higher than the current one (an interview outranks an acknowledgement); the same gmail_message_id again " +
@@ -493,7 +529,7 @@ export const TOOLS = [
     }],
 
   // ── data sharing ──
-  ["freeapply_shared_data", "Preview or send shared data", { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  ["freeapply_share_data", "Preview or send shared data", { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     desc(
       "Shows or sends the exact data the user chose to share with the FreeApply server (the sharing choices " +
         "themselves: freeapply_get_settings).",
@@ -507,8 +543,9 @@ export const TOOLS = [
         "data), the talent-pool request only if the user joined; secrets hidden. sync: {sent, result} or {sent: " +
         "false, reason}: Terms not accepted, a sync moments ago, or the server unreachable (the automatic sync " +
         "retries later).",
-      "Errors: another action."),
-    S({ action: oneOf(["preview", "sync"], "preview: show what would be sent; sync: send it now.") }, ["action"]),
+      "Errors: an action other than preview or sync."),
+    S({ action: oneOf(["preview", "sync"], "preview (read-only, the usual choice): show what would be sent; sync (only when the " +
+      "user asks): send it now.") }, ["action"]),
     (a) => {
       if (a.action === "preview") return sharing.preview();
       if (a.action === "sync") return sharing.sync(true);
@@ -588,17 +625,17 @@ export function checkArgs(tool, args) {
 // Taken from the tool calls themselves, so it costs the agent nothing.
 const jobName = (id) => { const j = id && store.getJob(id); return j ? `${j.title} at ${j.company}` : null; };
 const ACTIVITY = {
-  freeapply_status: (a) => (a.lane === "scout" || (a.procedure === "freeapply-apply" && !a.lane) ? "Searching for jobs" : null),
+  freeapply_get_status: (a) => (a.lane === "scout" || (a.procedure === "freeapply-apply" && !a.lane) ? "Searching for jobs" : null),
   freeapply_fetch_posting: () => "Reading a job posting",
   freeapply_claim_job: (a) => `Looking at ${a.title} at ${a.company}`,
   freeapply_check_text: (a) => (a.kind === "cover_letter" && jobName(a.job_id) ? `Writing a cover letter for ${jobName(a.job_id)}` : null),
   freeapply_clear_to_submit: (a) => (jobName(a.job_id) ? `Applying to ${jobName(a.job_id)}` : null),
   freeapply_update_job: (a) => (a.status === "applied" && jobName(a.job_id) ? `Applied to ${jobName(a.job_id)}` : null),
-  freeapply_reply_check: (a) => (a.action === "start" || a.action === "read" ? "Checking email for replies" : null),
+  freeapply_check_replies: (a) => (a.action === "start" || a.action === "read" ? "Checking email for replies" : null),
 };
 // Calls that only happen while the agent is working keep an unattended run alive (autorun.touch). Status and
-// autorun calls don't: a fresh hourly wake makes them before asking to start, and must not revive a run that died.
-const WORK_TOOLS = new Set(["freeapply_fetch_posting", "freeapply_claim_job", "freeapply_check_text", "freeapply_user_answers",
+// autorun calls don't: a session makes them before asking to start, and must not revive a run that died.
+const WORK_TOOLS = new Set(["freeapply_fetch_posting", "freeapply_claim_job", "freeapply_check_text", "freeapply_manage_answers",
   "freeapply_find_site_account", "freeapply_update_job", "freeapply_report_site_problem"]);
 function noteActivity(name, args) {
   try {

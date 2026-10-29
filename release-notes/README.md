@@ -5,6 +5,7 @@ Disclosures and Recruiter Terms) share one version number, so each file covers b
 
 | Version | Released | Summary |
 |---|---|---|
+| [1.0.6](1.0.6.md) | 2026-10-29 | FreeApply now keeps applying from the conversation you set it up in, with no scheduled tasks, and Start works within seconds. |
 | [1.0.5](1.0.5.md) | 2026-10-28 | FreeApply now keeps applying on its own once setup is done, with Start and Stop at the top of the dashboard and what it's working on right now. |
 | [1.0.4](1.0.4.md) | 2026-10-28 | FreeApply now reads employer replies itself, with a Gmail app password that stays on your computer and that your AI assistant never sees. |
 | [1.0.3](1.0.3.md) | 2026-10-28 | A small maintenance release: FreeApply now has the same version number everywhere it's listed, and its release notes on GitHub are easier to read. |

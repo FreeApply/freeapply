@@ -60,7 +60,7 @@ function loadGuard(skillDirs) {
   return guard;
 }
 
-const LOCKED_INSTRUCTIONS = "FreeApply is locked: its signed workflow failed verification. Call freeapply_status to see why " +
+const LOCKED_INSTRUCTIONS = "FreeApply is locked: its signed workflow failed verification. Call freeapply_get_status to see why " +
   "and tell the user. Do not try to repair or edit FreeApply files; updating or reinstalling FreeApply restores it.";
 
 async function handle(msg, ctx) {

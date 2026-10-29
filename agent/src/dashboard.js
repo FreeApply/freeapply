@@ -146,8 +146,10 @@ async function doPost(req, res, u) {
     case "/api/problems/dismiss": return send(res, 200, errorlog.remove(String(body.id || "")));
     case "/api/settings": {
       // Consent changes go through /api/consent and /api/sharing only; integrity records are never editable.
-      const { legal, sharing: _s, integrity, ...patch } = body;
+      // restart_run: saved during a run, and the user chose to use the new settings now rather than from the next run.
+      const { legal, sharing: _s, integrity, restart_run, ...patch } = body;
       const s = store.saveSettings(patch);
+      if (restart_run === true) autorun.requestRestart();
       return send(res, 200, { settings: store.publicSettings(s), missing: store.missingFields(s), models: modelInfo(s) });
     }
     case "/api/resume": {
@@ -206,6 +208,9 @@ function listen(port) {
     });
   });
 }
+
+/** The dashboard's address once started (FreeApply starts it when it starts), without starting it; null if it couldn't. */
+export const url = () => _starting || Promise.resolve(_url);
 
 /** Starts the dashboard once per machine; reuses one that another FreeApply process already serves. */
 export function start() {

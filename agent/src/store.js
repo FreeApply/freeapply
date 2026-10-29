@@ -7,7 +7,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { emailStatus } from "./secrets.js";
 
-export const VERSION = "1.0.5";
+export const VERSION = "1.0.6";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
@@ -111,20 +111,18 @@ const DEFAULT_SETTINGS = {
   // The only credential it keeps is an optional email app password, in the local .env (secrets.js), never in here.
   automation: { sources: ["linkedin", "company_sites"], signed_in: {}, signed_out: {}, site_paused_until: {}, easy_apply_allowed: false,
     fit_threshold: 60, rate_per_minute: 3, daily_cap: null },
-  // Unattended runs on a schedule. Only the user changes these (dashboard); the agent reports schedule changes
-  // through freeapply_autorun. A run goes on until nothing is left or a limit: max_run_minutes and max_applications are
-  // optional per-run limits (null: none); the daily cap above still applies; every_hours is how often the schedule
-  // wakes to restart a run that ended. chosen_at: when the user last pressed Start or Stop. auto_started_at: when
-  // FreeApply turned it on by itself, once, the first time setup was complete. (max_minutes, from before runs were
-  // continuous, is no longer read.)
-  autorun: { enabled: false, every_hours: 1, max_run_minutes: null, max_applications: null, schedule_created: false, chosen_at: null,
-    auto_started_at: null },
+  // Auto-run, kept going by the AI session setup ends in (autorun.js). Only the user changes these (dashboard).
+  // every_hours: how long it rests after a search finds nothing new. max_run_minutes and max_applications: optional
+  // limits counted from the last Start (null: none) that turn it off when reached; the daily cap above pauses it until
+  // tomorrow. chosen_at: when the user last pressed Start or Stop. auto_started_at: when FreeApply turned it on by
+  // itself, once, the first time setup was complete.
+  autorun: { enabled: false, every_hours: 1, max_run_minutes: null, max_applications: null, chosen_at: null, auto_started_at: null },
   onboarding: { completed_at: null, dismissed_at: null },
   // Answers the user gave on the Needs you tab and chose to reuse: {normalized question: answer}.
   custom_answers: {},
   // manual_logins: the user chose at setup to enter every password themselves instead of saving an email login.
   gmail: { enabled: true, interval_hours: 4, action: "star", label_name: "Job Replies",
-    count_acknowledgements: false, last_check: null, schedule_created: false, manual_logins: false },
+    count_acknowledgements: false, last_check: null, manual_logins: false },
   // The models the AI app can hand a step to, as it reported them (freeapply_update_settings, re-scanned after updates),
   // and the user's own pick per level in Advanced settings (empty: the signed catalog decides). See models.js.
   models: { app: null, current: null, can_delegate: false, available: [], efforts: [], scanned_at: null, scanned_for: null },
@@ -272,9 +270,15 @@ export function get(obj, dotted) {
   return dotted.split(".").reduce((d, k) => (isObj(d) ? d[k] : undefined), obj);
 }
 
+// Fields older versions kept that nothing reads any more (the scheduled tasks, and the run limit before runs were
+// continuous): left out so no agent reads them as current.
+const OBSOLETE = [["autorun", "schedule_created"], ["autorun", "max_minutes"], ["gmail", "schedule_created"]];
+
 export function loadSettings() {
   fs.mkdirSync(paths.data, { recursive: true });
-  return merge(structuredClone(DEFAULT_SETTINGS), readJson(paths.settings) || {});
+  const s = merge(structuredClone(DEFAULT_SETTINGS), readJson(paths.settings) || {});
+  for (const [section, key] of OBSOLETE) delete s[section]?.[key];
+  return s;
 }
 
 export function missingFields(s = loadSettings()) {
@@ -313,6 +317,7 @@ function writeSettings(s) {
   const tmp = `${paths.settings}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
   fs.renameSync(tmp, paths.settings);
+  try { documentsInfo(s); } catch { /* the copy is refreshed again at the next save or start */ }
   return s;
 }
 
@@ -320,16 +325,20 @@ function writeSettings(s) {
 export const COVER_LENGTHS = { short: [120, 180], standard: [150, 250], long: [250, 380] };
 
 /** The folder of files to upload, with a current copy of the user's primary résumé in it (the original sits in the
- * hidden data folder, which file-select windows often don't show). */
-export function documentsInfo(s = loadSettings()) {
+ * hidden data folder, which file-select windows often don't show). refresh false only reports (freeapply_get_status is
+ * read-only): every settings save and FreeApply's start keep the copy current. */
+export function documentsInfo(s = loadSettings(), refresh = true) {
   const dir = paths.documents;
   let resume = null;
   const src = s.resume.primary;
   if (src && fs.existsSync(src)) {
-    fs.mkdirSync(dir, { recursive: true });
     resume = path.join(dir, path.basename(src));
     const st = fs.statSync(src);
-    if (!fs.existsSync(resume) || fs.statSync(resume).mtimeMs < st.mtimeMs || fs.statSync(resume).size !== st.size) fs.copyFileSync(src, resume);
+    if (!refresh) resume = fs.existsSync(resume) ? resume : null;
+    else if (!fs.existsSync(resume) || fs.statSync(resume).mtimeMs < st.mtimeMs || fs.statSync(resume).size !== st.size) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(src, resume);
+    }
   }
   return { dir, resume, cover_letters: path.join(dir, "Cover letters") };
 }
@@ -412,7 +421,14 @@ export function bootstrap() {
       talent_secret: sh.talent_secret || crypto.randomBytes(32).toString("base64url") } });
   }
   run("INSERT OR IGNORE INTO meta (key, value) VALUES ('installed_at', ?)", now());
-  return { first_run: _firstRun, data_dir: paths.data, db: paths.db, setup_complete: !missingFields(s).length, missing: missingFields(s) };
+  documentsInfo(s);
+  return installInfo(s);
+}
+
+/** What the install looks like, without writing anything (bootstrap runs when FreeApply starts). */
+export function installInfo(s = loadSettings()) {
+  const missing = missingFields(s);
+  return { first_run: !!_firstRun, data_dir: paths.data, db: paths.db, setup_complete: !missing.length, missing };
 }
 
 export function findDuplicates(company, title, externalId) {
@@ -581,13 +597,14 @@ export function throttleCounts(method) {
 // ───────────────────────────── reads for the dashboard ─────────────────────────────
 
 /** Tracked jobs, most recent activity first. limit and offset page through them (the dashboard asks for all). */
-export function listJobs(status, outcome, search, limit = 2000, offset = 0) {
+export function listJobs(status, outcome, search, limit = 2000, offset = 0, jobId = null) {
   let q = "SELECT j.id, j.title, j.company, j.location, j.work_mode, j.pay_text, j.pay_min, j.pay_max, j.url, " +
     "j.apply_url, j.fit_score, j.status, j.status_note, j.outcome, j.outcome_at, j.source, j.found_at, " +
     "j.updated_at, a.method, a.submitted_at, a.confirmation, a.resume_path, a.cover_path, " +
     "(SELECT count(*) FROM replies r WHERE r.job_id=j.id) AS reply_count " +
     "FROM jobs j LEFT JOIN applications a ON a.job_id=j.id WHERE 1=1";
   const args = [];
+  if (jobId) (q += " AND j.id=?"), args.push(Number(jobId));
   if (status) (q += " AND j.status=?"), args.push(status);
   if (outcome) (q += " AND j.outcome=?"), args.push(outcome);
   if (search) (q += " AND (j.title LIKE ? OR j.company LIKE ? OR j.location LIKE ?)"), args.push(...Array(3).fill(`%${search}%`));
