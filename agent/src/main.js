@@ -10,6 +10,7 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import * as store from "./store.js";
 import * as sharing from "./sharing.js";
+import * as inbox from "./inbox.js";
 import * as dashboard from "./dashboard.js";
 import { Guard, parseKeys } from "./workflow.js";
 import { TOOLS, callTool } from "./tools.js";
@@ -93,6 +94,7 @@ async function handle(msg, ctx) {
 function serveStdio(ctx) {
   const write = (obj) => process.stdout.write(`${JSON.stringify(obj)}\n`);
   let queue = Promise.resolve();
+  const running = new Map(); // request id -> AbortController, so a cancel ends a long call (an auto-run waiting for Start)
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
   rl.on("line", (line) => {
     if (!line.trim()) return;
@@ -102,18 +104,32 @@ function serveStdio(ctx) {
     } catch {
       return;
     }
+    // Pings and cancels are answered at once, even while a tool call waits.
+    if (msg.method === "ping" && msg.id !== undefined) return write({ jsonrpc: "2.0", id: msg.id, result: {} });
+    if (msg.method === "notifications/cancelled") return running.get(msg.params?.requestId)?.abort();
     // One message at a time, in order, so tool calls never interleave.
     queue = queue.then(async () => {
       const id = msg.id;
+      const abort = new AbortController();
+      if (id !== undefined && id !== null) running.set(id, abort);
+      // A long call reports progress, which keeps the AI app from timing it out.
+      const token = msg.params?._meta?.progressToken;
+      const progress = token === undefined ? null
+        : (n, message) => write({ jsonrpc: "2.0", method: "notifications/progress", params: { progressToken: token, progress: n, message } });
       try {
-        const result = await handle(msg, ctx);
+        const result = await handle(msg, { ...ctx, signal: abort.signal, progress });
         if (id !== undefined && id !== null) write({ jsonrpc: "2.0", id, result });
       } catch (e) {
         if (id !== undefined && id !== null) write({ jsonrpc: "2.0", id, error: { code: e.code || -32603, message: e.message } });
+      } finally {
+        running.delete(id);
       }
     });
   });
-  rl.on("close", () => queue.then(() => process.exit(0)));
+  rl.on("close", () => {
+    for (const a of running.values()) a.abort(); // the AI app is gone: nobody is waiting for the answer
+    queue.then(() => process.exit(0));
+  });
 }
 
 async function main() {
@@ -139,6 +155,8 @@ async function main() {
   const presence = () => sharing.ping().catch(() => {});
   setTimeout(presence, 20000).unref();
   setInterval(presence, sharing.PING_EVERY_MS).unref();
+  // New employer emails for the Replies tab every 15 minutes, with the email login the user saved (inbox.js).
+  inbox.watch();
   if (opts.dashboardOnly) {
     const url = await dashboard.start();
     console.log(`FreeApply dashboard: ${url}  (Ctrl+C to stop)  workflow: ${guard.status.ok ? `ok ${guard.status.version}` : guard.status.problem}`);

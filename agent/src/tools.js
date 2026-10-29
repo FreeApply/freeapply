@@ -299,8 +299,8 @@ export const TOOLS = [
     S({ job_id: { ...JOB_ID, description: "The job about to be submitted; without it you only see the pace." },
       method: oneOf(["external", "easy_apply", "email"], "How you will submit: external (employer or ATS form; default), easy_apply (a job board's " +
         "one-click apply; refused while one-click apply is off) or email."),
-      run_id: str("Unattended run only: the run_id from freeapply_autorun start; first checks that run's time and application " +
-        "budgets and the dashboard's Stop button.") }),
+      run_id: str("Unattended run only: the run_id from freeapply_autorun start; first checks that run's limits and the " +
+        "dashboard's Stop button, and keeps the run alive.") }),
     (a, ctx) => rules.throttle(ctx.rules(), a.method || "external", a.job_id, a.run_id)],
   ["freeapply_update_job", "Update a job's application status", SET,
     desc(
@@ -364,21 +364,26 @@ export const TOOLS = [
       "Use: start at the beginning of every scheduled run, finish at its end, also when stopping early; " +
         "schedule_created or schedule_removed after you create or delete the scheduled task, so the dashboard shows " +
         "it. Not in a session the user runs by hand.",
-      "Behavior: start opens a run only when one may go now: while a run is going, or within 10 minutes of its " +
-        "planned end, go false. In the run, freeapply_clear_to_submit with the run_id ends it when a budget runs out " +
-        "or the user presses Stop. finish releases the run; harmless on a run that already ended.",
-      "Returns: start {go: true, run_id, minutes, max_applications, sites} or {go: false, reason} (auto-run off, " +
-        "Terms or setup missing, daily cap reached, another run going): then stop at once, quietly. finish " +
+      "Behavior: start opens a run only when none is going (a run checks in with each job-work tool call and " +
+        "freeapply_clear_to_submit; 15 minutes without one counts as ended), else go false. A run continues until nothing is left to apply to; " +
+        "freeapply_clear_to_submit with the run_id ends it when a limit is reached or the user presses Stop. start " +
+        "with wait: while auto-run is off only because the user pressed Stop, holds the call up to 10 minutes and " +
+        "returns as soon as they press Start (one session waits; another gets go false at once). finish releases the " +
+        "run; harmless on a run that already ended.",
+      "Returns: start {go: true, run_id, minutes (time limit, null: none), max_applications, sites} or {go: false, reason} (auto-run off, " +
+        "Terms or setup missing, daily cap reached, another run going or waiting), plus wait_again true when a wait " +
+        "timed out with auto-run still off: call start with wait again; any other go false: stop at once, quietly. finish " +
         "{finished, applied_this_run}, null for a run no longer active. schedule_created/schedule_removed " +
         "{schedule_created}.",
       "Errors: finish without run_id; another action."),
     S({ action: oneOf(["start", "finish", "schedule_created", "schedule_removed"], "start or finish a run; schedule_created or " +
       "schedule_removed report the scheduled task."),
       run_id: str("Required for finish: the run_id start returned."),
+      wait: { type: "boolean", description: "For start, in a scheduled run: if the user turned auto-run off, wait for them to press Start." },
       summary: str("For finish: one line on the run, e.g. \"applied 4, needs you 2\" (up to 500 characters).") }, ["action"]),
-    (a) => {
+    (a, ctx) => {
       switch (a.action) {
-        case "start": return autorun.start();
+        case "start": return a.wait ? autorun.startOrWait({ signal: ctx.signal, progress: ctx.progress }) : autorun.start();
         case "finish":
           if (!a.run_id) throw new Error("run_id is required for finish: pass the run_id that start returned");
           return autorun.finish(a.run_id, a.summary);
@@ -448,6 +453,7 @@ export const TOOLS = [
       if (a.action === "read") {
         if (!plan.applied.length) return { emails: [], count: 0 };
         const emails = await findReplies(login, { since: plan.since, companies: plan.applied.map((j) => j.company), known: plan.known_message_ids });
+        store.inboxSeen(emails.map((e) => e.gmail_message_id));
         return { emails, count: emails.length };
       }
       if (!a.gmail_message_id || !a.kind) throw new Error("mark needs gmail_message_id and kind");
@@ -578,6 +584,30 @@ export function checkArgs(tool, args) {
     (/unknown parameter/.test(problems) ? `. It takes: ${names.length ? names.join(", ") : "no parameters"}` : ""));
 }
 
+// What the agent is doing now, in plain words for the dashboard's top bar ("Running · Applying to IT Support at Acme").
+// Taken from the tool calls themselves, so it costs the agent nothing.
+const jobName = (id) => { const j = id && store.getJob(id); return j ? `${j.title} at ${j.company}` : null; };
+const ACTIVITY = {
+  freeapply_status: (a) => (a.lane === "scout" || (a.procedure === "freeapply-apply" && !a.lane) ? "Searching for jobs" : null),
+  freeapply_fetch_posting: () => "Reading a job posting",
+  freeapply_claim_job: (a) => `Looking at ${a.title} at ${a.company}`,
+  freeapply_check_text: (a) => (a.kind === "cover_letter" && jobName(a.job_id) ? `Writing a cover letter for ${jobName(a.job_id)}` : null),
+  freeapply_clear_to_submit: (a) => (jobName(a.job_id) ? `Applying to ${jobName(a.job_id)}` : null),
+  freeapply_update_job: (a) => (a.status === "applied" && jobName(a.job_id) ? `Applied to ${jobName(a.job_id)}` : null),
+  freeapply_reply_check: (a) => (a.action === "start" || a.action === "read" ? "Checking email for replies" : null),
+};
+// Calls that only happen while the agent is working keep an unattended run alive (autorun.touch). Status and
+// autorun calls don't: a fresh hourly wake makes them before asking to start, and must not revive a run that died.
+const WORK_TOOLS = new Set(["freeapply_fetch_posting", "freeapply_claim_job", "freeapply_check_text", "freeapply_user_answers",
+  "freeapply_find_site_account", "freeapply_update_job", "freeapply_report_site_problem"]);
+function noteActivity(name, args) {
+  try {
+    if (WORK_TOOLS.has(name)) autorun.touch();
+    const text = ACTIVITY[name]?.(args || {});
+    if (text) store.metaSet("activity", JSON.stringify({ text: text.slice(0, 140), at: new Date().toISOString() }));
+  } catch { /* the top bar can do without it */ }
+}
+
 /** Runs one tool call through the gates. ctx: { guard, rules() }. */
 export async function callTool(name, args, ctx) {
   const tool = BY_NAME.get(name);
@@ -595,7 +625,9 @@ export async function callTool(name, args, ctx) {
     ctx.guard.checkSkills(); // edited skill files are restored and recorded
   }
   try {
-    return text((await tool.handler(checkArgs(tool, args), ctx)) ?? {});
+    const out = await tool.handler(checkArgs(tool, args), ctx);
+    noteActivity(name, args);
+    return text(out ?? {});
   } catch (e) {
     // Refusals and bad arguments are answers; anything unexpected also goes into the local problem log.
     if (errorlog.unexpected(e)) errorlog.record("tool", name, e);

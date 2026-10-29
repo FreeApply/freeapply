@@ -10,7 +10,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.4** ([notes](release-notes/1.0.4.md)). The app and its legal documents share one version
+Current version: **1.0.5** ([notes](release-notes/1.0.5.md)). The app and its legal documents share one version
 number.
 
 ## What it does
@@ -23,7 +23,11 @@ number.
 - **Knows when to stop.** CAPTCHAs, new accounts, passwords and questions your settings don't answer go to the Issues
   tab for you.
 - **Tracks everything** in a dashboard at `http://127.0.0.1:7878`, reachable only from your computer.
-- **Watches for replies** with your AI app's Gmail connector, every 4 hours by default.
+- **Watches for replies**: with the Gmail app password you connect in setup, new employer emails show up in the
+  dashboard within about 15 minutes, and your AI app sorts them every 4 hours by default (the Gmail connector works
+  too).
+- **Keeps going on its own** once setup is done, while your AI app is open; Start and Stop are at the top of the
+  dashboard, with what it's working on right now.
 
 ## Install
 | App | How |
@@ -78,11 +82,12 @@ linked in the footer. The **Needs you** tab collects what needs you, in plain wo
 - **Questions**: what a form asked that your settings don't answer, each as a simple question you answer by typing,
   from a dropdown or by picking options. A question several jobs ask is shown once, and one answer goes to all of
   them; questions you already answered aren't asked again. The jobs then go back in the queue.
-- **Accounts to create**: one card per sign-up page, however many jobs wait on that account, with its link and a
+- **Accounts to make**: one card per sign-up page, however many jobs wait on that account, with its link and a
   **FreeApply Autofill** bookmarklet that fills your name, email, phone and location on sign-up pages. Passwords stay
   with your browser or password manager.
-- **Blocked**: what the site asked for (a "prove you're a person" check, a code, a warning), with "I applied myself",
-  "Try again later" and "Skip this job".
+- **Stuck**: what the site asked for in plain words (a "prove you're a person" check, a code, a warning, a document
+  FreeApply doesn't have, a question only you can answer), with "I applied myself", "Try again later" and "Skip this
+  job".
 
 ## Configuration
 | What | Where |

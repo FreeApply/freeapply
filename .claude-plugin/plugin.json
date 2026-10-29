@@ -1,6 +1,6 @@
 {
   "name": "freeapply",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies on a schedule, and shows it all in a local dark-mode dashboard with first-run setup.",
   "author": { "name": "MyBotsAI" },
   "homepage": "https://www.mybotsai.com",

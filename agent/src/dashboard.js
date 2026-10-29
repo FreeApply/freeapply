@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import * as store from "./store.js";
 import * as sharing from "./sharing.js";
 import * as autorun from "./autorun.js";
+import * as inbox from "./inbox.js";
 import * as ads from "./ads.js";
 import * as errorlog from "./errorlog.js";
 import * as models from "./models.js";
@@ -87,6 +88,9 @@ function doGet(req, res, u) {
     case "/api/email": return send(res, 200, secrets.emailStatus());
     case "/api/jobs": return send(res, 200, store.listJobs(q.status, q.outcome, q.q));
     case "/api/replies": return send(res, 200, store.listReplies());
+    case "/api/inbox": return send(res, 200, store.listInbox());
+    // Asked every few seconds by the open dashboard; it reloads when the stamp moves.
+    case "/api/changes": return send(res, 200, { stamp: store.changeStamp() });
     case "/api/settings": {
       const s = store.publicSettings(store.loadSettings());
       return send(res, 200, { settings: s, missing: store.missingFields(s), statuses: store.STATUSES, outcomes: store.OUTCOMES,
@@ -112,6 +116,9 @@ async function doPost(req, res, u) {
       bg(() => sharing.sync(true));
       return send(res, 200, { ok: true, gpc: g });
     case "/api/autorun/stop": return send(res, 200, autorun.requestStop());
+    case "/api/inbox/check": return send(res, 200, await inbox.check({ force: true }));
+    // The top bar's Start and Stop: turns auto-run on or off (Stop also ends a run in progress).
+    case "/api/autorun/switch": return send(res, 200, autorun.setOn(body.on === true));
     // The email login is checked with the mail server first and saved only if it works; only the local .env keeps it.
     case "/api/email/save": {
       const login = secrets.checkLogin(body);

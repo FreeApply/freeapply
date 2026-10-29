@@ -7,7 +7,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { emailStatus } from "./secrets.js";
 
-export const VERSION = "1.0.4";
+export const VERSION = "1.0.5";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
@@ -78,6 +78,11 @@ CREATE TABLE IF NOT EXISTS job_questions (
 CREATE TABLE IF NOT EXISTS site_accounts (
   domain TEXT PRIMARY KEY, email_used TEXT, created_at TEXT, job_id INTEGER, note TEXT
 );
+-- New emails FreeApply's own mailbox check found (inbox.js), shown in Replies until the reply check records them.
+-- Only who sent it, the subject and when: the text stays in the mailbox. seen: a reply check read it.
+CREATE TABLE IF NOT EXISTS inbox (
+  gmail_message_id TEXT PRIMARY KEY, company TEXT, sender TEXT, subject TEXT, received_at TEXT, found_at TEXT, seen INTEGER DEFAULT 0
+);
 `;
 // Columns added on top of the original schema (added in place to old databases).
 // account_url: for needs_account, the page where the user makes the account (jobs with the same one share a card).
@@ -107,8 +112,13 @@ const DEFAULT_SETTINGS = {
   automation: { sources: ["linkedin", "company_sites"], signed_in: {}, signed_out: {}, site_paused_until: {}, easy_apply_allowed: false,
     fit_threshold: 60, rate_per_minute: 3, daily_cap: null },
   // Unattended runs on a schedule. Only the user changes these (dashboard); the agent reports schedule changes
-  // through freeapply_autorun. Budgets are per run; the daily cap above still applies.
-  autorun: { enabled: false, every_hours: 1, max_minutes: 50, max_applications: null, schedule_created: false },
+  // through freeapply_autorun. A run goes on until nothing is left or a limit: max_run_minutes and max_applications are
+  // optional per-run limits (null: none); the daily cap above still applies; every_hours is how often the schedule
+  // wakes to restart a run that ended. chosen_at: when the user last pressed Start or Stop. auto_started_at: when
+  // FreeApply turned it on by itself, once, the first time setup was complete. (max_minutes, from before runs were
+  // continuous, is no longer read.)
+  autorun: { enabled: false, every_hours: 1, max_run_minutes: null, max_applications: null, schedule_created: false, chosen_at: null,
+    auto_started_at: null },
   onboarding: { completed_at: null, dismissed_at: null },
   // Answers the user gave on the Needs you tab and chose to reuse: {normalized question: answer}.
   custom_answers: {},
@@ -294,6 +304,12 @@ export function saveSettings(patch) {
 
 function writeSettings(s) {
   s.setup_complete = !missingFields(s).length;
+  // The first time setup is complete, auto-run turns on by itself, unless the user already chose, or finished setup
+  // before this existed (an update that asks for one new field doesn't switch on an install the user left off).
+  const a = s.autorun;
+  if (s.setup_complete && !a.enabled && !a.chosen_at && !a.auto_started_at && !s.onboarding?.completed_at) {
+    a.enabled = true; a.auto_started_at = now();
+  }
   const tmp = `${paths.settings}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
   fs.renameSync(tmp, paths.settings);
@@ -501,6 +517,7 @@ export function recordReply(r) {
   const kind = r.kind || "replied";
   if (!OUTCOMES[kind]) throw new Error(`kind must be one of ${Object.keys(OUTCOMES).sort().join(", ")}`);
   if (r.job_id && !one("SELECT id FROM jobs WHERE id=?", r.job_id)) throw new Error(`no job ${r.job_id}; find its id with freeapply_list_jobs`);
+  if (r.gmail_message_id) run("DELETE FROM inbox WHERE gmail_message_id=?", r.gmail_message_id);
   const received = localTime(r.received_at);
   const added = Number(run("INSERT OR IGNORE INTO replies (job_id, company, gmail_message_id, gmail_thread_id, sender, subject, " +
     "received_at, kind, summary, mail_action, recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -527,7 +544,30 @@ export function replyCheckPlan() {
   return { since, gmail: s.gmail, applied: rows, known_message_ids: known.slice(-500) };
 }
 
-export const markReplyCheckDone = () => saveSettings({ gmail: { last_check: now() } });
+/** The reply check is done: emails it read and left unrecorded (not about an application after all) leave the list. */
+export function markReplyCheckDone() {
+  run("DELETE FROM inbox WHERE seen=1");
+  return saveSettings({ gmail: { last_check: now() } });
+}
+
+/** The mailbox check's new emails, newest first; known ids are skipped. */
+export function inboxAdd(emails) {
+  let n = 0;
+  for (const e of emails) n += Number(run("INSERT OR IGNORE INTO inbox (gmail_message_id, company, sender, subject, received_at, found_at) " +
+    "VALUES (?,?,?,?,?,?)", e.gmail_message_id, e.company || null, e.sender, e.subject, localTime(e.received_at), now()).changes);
+  return n;
+}
+export const inboxSeen = (ids) => ids.forEach((id) => run("UPDATE inbox SET seen=1 WHERE gmail_message_id=?", id));
+export const listInbox = () => all("SELECT * FROM inbox ORDER BY coalesce(received_at, found_at) DESC LIMIT 200");
+
+/** Changes when anything the dashboard shows changes, from this process or another (the dashboard asks every few
+ * seconds and reloads when it moves). data_version moves with other connections' commits, total_changes with ours. */
+export function changeStamp() {
+  const d = db();
+  let mtime = 0;
+  try { mtime = fs.statSync(paths.settings).mtimeMs; } catch { /* no settings yet */ }
+  return `${d.prepare("PRAGMA data_version").get().data_version}.${d.prepare("SELECT total_changes() AS n").get().n}.${mtime}`;
+}
 
 /** Submissions in the last minute for a method and today overall (rules.js turns this into a clearance). */
 export function throttleCounts(method) {
@@ -595,6 +635,8 @@ export function stats() {
     top_jobs: all("SELECT j.id, j.title, j.company, j.pay_text, j.fit_score, j.outcome, j.url FROM jobs j " +
       "WHERE j.status='applied' ORDER BY coalesce(j.fit_score,0) DESC, j.updated_at DESC LIMIT 6"),
     last_reply_check: s.gmail.last_check,
+    inbox_checked_at: metaGet("inbox_checked_at"), inbox_error: metaGet("inbox_error"), inbox_new: scalar("SELECT count(*) FROM inbox"),
+    email_login: emailStatus().saved,
     setup_complete: !missingFields(s).length,
   };
 }
@@ -765,6 +807,8 @@ export function setAccountUrl(jobId, url) {
  * user (code), a warning about automated use (warning), or something else (other). The dashboard words each plainly. */
 export function blockedKind(note) {
   const t = String(note || "").toLowerCase();
+  if (/transcript|writing sample|work sample|portfolio (?:file|upload)|upload (?:a|an|your) (?!resume|résumé|cv)/.test(t)) return "document";
+  if (/essay|own words|not genai|real story|behaviou?ral|in \d+ words|cover letter in (?:a|the) (?:box|text)/.test(t)) return "essay";
   if (/captcha|human|robot|turnstile|puzzle|challenge/.test(t)) return "captcha";
   if (/\bcode\b|one[- ]time|\botp\b|2fa|two[- ]factor|passcode|verification (?:email|text|sms)/.test(t)) return "code";
   if (/automat|unusual|suspicious|\bbots?\b|too many|rate.?limit|warning|restricted|banned/.test(t)) return "warning";
@@ -781,6 +825,13 @@ export function domainOf(u) {
 
 /** Everything waiting on the user, by status, plus the two views the Needs you tab shows: questions (each question
  * once, however many jobs ask it, worded plainly) and accounts (one per employer site, however many jobs wait on it). */
+// An older record's note is offered as a question only when it reads like one for the user. Notes the agent wrote for
+// itself ("Greenhouse form requires ...") are not questions: those jobs go to Stuck, explained in plain words.
+const asksUser = (note) => { const t = String(note || "").trim();
+  if (!t || /https?:|[\\/]\w+[\\/]|\.pdf\b|\bclaim:/i.test(t)) return false;
+  return t.endsWith("?") ? t.length <= 200 // a question, or a short field label ("Desired salary (required)")
+    : t.length <= 80 && !/[.;]\s/.test(t) && !/\b(?:form|requires?|needs|upload|captcha|account|agent|retry|fit \d+)\b/i.test(t); };
+
 export function listIssues() {
   const saved = loadSettings().custom_answers || {};
   const out = Object.fromEntries(ISSUE_STATUSES.map((k) => [k, []]));
@@ -791,12 +842,14 @@ export function listIssues() {
     const j = Object.fromEntries(["id", "title", "company", "location", "work_mode", "pay_text", "url", "apply_url",
       "status", "status_note", "fit_score", "updated_at"].map((k) => [k, r[k] ?? null]));
     if (r.status === "needs_info") {
-      let qs = questions(r.id);
-      if (!qs.length && r.status_note) {
+      // Earlier versions turned every such note into a question; those that aren't questions are dropped here.
+      let qs = questions(r.id).filter((q) => q.label !== r.status_note || asksUser(r.status_note));
+      if (!qs.length && asksUser(r.status_note)) {
         // Older records only have the question in the note: offer it as one free-text question.
         insertQuestion(r.id, cleanQuestion({ label: r.status_note, type: "textarea" }));
         qs = questions(r.id);
       }
+      if (!qs.length) j.kind = blockedKind(r.status_note);
       j.questions = qs.map(withOptions).map((q) => {
         const s = q.answer === null && savedAnswerFor(q.label, saved, q.prompt);
         return { ...q, prompt: q.prompt || plainer(q.label), ...(s && answerFits(q, s.answer) ? { suggested: s.answer } : {}) };

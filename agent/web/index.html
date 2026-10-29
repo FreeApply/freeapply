@@ -90,6 +90,7 @@ svg text{fill:var(--muted);font:10px var(--mono)}
 .b-needs_info,.b-needs_account,.b-blocked{color:var(--amber);border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.06)}
 .b-failed,.b-rejected{color:var(--red);border-color:rgba(255,93,122,.45)}
 .b-interview,.b-offer{color:#06050c;background:var(--green);border-color:var(--green);box-shadow:0 0 12px rgba(52,245,160,.5)}
+.b-new{color:var(--green);border-color:rgba(52,245,160,.5);background:rgba(52,245,160,.08)}
 .b-replied,.b-assessment{color:#d8b4fe;border-color:rgba(168,85,247,.6);background:rgba(168,85,247,.12)}
 .b-acknowledged,.b-withdrawn{color:var(--muted);border-color:rgba(154,145,189,.4)}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -170,7 +171,7 @@ td select{background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:
 .site .signin .agree{flex:none;min-width:0}
 .site .warn{color:var(--amber);font:12px var(--mono);flex-basis:100%}
 .btn.sm{padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text)}
-.sponsor{margin-top:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.sponsor{margin:0 0 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .sponsor .tag{font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:6px;padding:2px 6px}
 .sponsor .body{flex:1;min-width:220px} .sponsor .body b{display:block} .sponsor .body p{margin:2px 0 0;color:var(--muted);font-size:13px}
 /* Setup wizard: after the Terms on a fresh install, before the dashboard. */
@@ -250,7 +251,8 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
       <div><h1>FREEAPPLY</h1><small id="sub">YOUR JOB SEARCH</small></div>
     </div>
     <div class="spacer"></div>
-    <span class="pill" id="setupPill">…</span>
+    <span class="pill" id="runPill" role="status">…</span>
+    <button type="button" class="btn sm" id="runBtn" hidden></button>
     <span class="pill" id="mailPill">…</span>
     <div class="modeseg" id="modeSeg" role="group" aria-label="View">
       <button type="button" data-mode="simple" title="Just what you need day to day">Simple</button>
@@ -274,6 +276,8 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
 
   <!-- OVERVIEW -->
   <section class="view on" id="v-overview">
+    <!-- Sponsored card, right under the menu: chosen on this computer from a signed, cached pack. No ad scripts ever run on this page. -->
+    <aside class="panel sponsor" id="sponsor" aria-label="Sponsored" hidden></aside>
     <div class="welcome" id="welcome">
       <h2>Welcome to FreeApply. Let's set you up.</h2>
       <p>Add your resume and what you're looking for in <a href="#settings" data-go="settings">Settings</a>. FreeApply won't apply anywhere until that's done.</p>
@@ -290,8 +294,6 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
       <div class="panel adv"><h3>Top companies</h3><ul class="list" id="topCos"></ul></div>
       <div class="panel adv"><h3>Status breakdown</h3><ul class="list" id="statusList"></ul></div>
     </div>
-    <!-- Sponsored card: chosen on this computer from a signed, cached pack. No ad scripts ever run on this page. -->
-    <aside class="panel sponsor" id="sponsor" aria-label="Sponsored" hidden></aside>
   </section>
 
   <!-- APPLICATIONS -->
@@ -317,7 +319,8 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
   <!-- REPLIES -->
   <section class="view" id="v-replies">
     <div class="toolbar"><span class="count" id="rcount"></span><div class="spacer"></div>
-      <span class="count">Checked every <b id="ivl">4</b> h, by FreeApply with your email login or through your AI app's Gmail connector</span></div>
+      <span class="count" id="rnote">New emails show up within 15 minutes with your email login; your AI app sorts them every <b id="ivl">4</b> h</span>
+      <button type="button" class="btn sm" id="inboxNow" hidden>Check email now</button></div>
     <div class="tablewrap"><table id="repTable">
       <thead><tr><th data-k="received_at">Received</th><th data-k="company">Company</th><th data-k="kind">Type</th>
         <th data-k="subject">Subject</th><th data-k="sender" class="adv">From</th><th data-k="mail_action" class="adv">Gmail</th></tr></thead>
@@ -329,8 +332,8 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
   <section class="view" id="v-issues">
     <div class="seg" id="issSeg" style="margin-bottom:12px">
       <button type="button" data-i="needs_info" class="on">Questions <span id="cNI"></span></button>
-      <button type="button" data-i="needs_account">Accounts to create <span id="cNA"></span></button>
-      <button type="button" data-i="blocked">Blocked <span id="cBL"></span></button>
+      <button type="button" data-i="needs_account">Accounts to make <span id="cNA"></span></button>
+      <button type="button" data-i="blocked">Stuck <span id="cBL"></span></button>
     </div>
     <div id="iss-needs_info" class="isslist">
       <div id="qList"></div>
@@ -410,10 +413,9 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
         </div>
       </div>
       <div class="panel"><h3>Email replies</h3><div class="fields">
-        <div class="field full adv"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
-          <span class="hint">Runs while your AI app is open and stops on its own at the first hard stop. Budgets are under Advanced.</span>
-          <div class="kv" id="arInfo"></div>
-          <div class="btnrow"><button type="button" class="btn red sm" id="arStop" hidden>Stop the current run</button></div></div>
+        <div class="field full adv"><label>Auto-run</label>
+          <span class="hint">Start and Stop are at the top of every page. FreeApply keeps applying while your AI app is open, and starts again by itself if it stops. Limits are under Advanced.</span>
+          <div class="kv" id="arInfo"></div></div>
         <div class="field full"><label>Email login</label><div data-email></div></div>
         <div class="field"><label>Check email for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
         <div class="field adv"><label>When a reply arrives</label><select name="gmail.action">
@@ -443,12 +445,12 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
           <div class="field"><label>Earliest start</label><input name="eligibility.earliest_start"></div>
           <div class="field"><label>Years of experience</label><input name="eligibility.years_experience" type="number" min="0" step="0.5"></div>
         </div></div>
-        <div class="panel"><h3>Pace and auto-run budgets</h3><div class="fields">
+        <div class="panel"><h3>Pace and limits</h3><div class="fields">
           <div class="field"><label>Max submits / minute</label><input name="automation.rate_per_minute" type="number" min="1" max="10"></div>
           <div class="field"><label>Daily cap</label><input name="automation.daily_cap" type="number" min="0" placeholder="none"></div>
-          <div class="field"><label>Auto-run every (hours)</label><input name="autorun.every_hours" type="number" min="1" max="24"></div>
-          <div class="field"><label>Minutes per run (max 55)</label><input name="autorun.max_minutes" type="number" min="5" max="55"></div>
-          <div class="field"><label>Applications per run</label><input name="autorun.max_applications" type="number" min="1" placeholder="no limit"></div>
+          <div class="field"><label>If it stops, start again every (hours)</label><input name="autorun.every_hours" type="number" min="1" max="24"></div>
+          <div class="field"><label>Stop each run after (minutes)</label><input name="autorun.max_run_minutes" type="number" min="5" placeholder="no limit"></div>
+          <div class="field"><label>Stop each run after (applications)</label><input name="autorun.max_applications" type="number" min="1" placeholder="no limit"></div>
         </div></div>
         <div class="panel"><h3>Gmail details</h3><div class="fields">
           <div class="field"><label>Check every (hours)</label><input name="gmail.interval_hours" type="number" min="1" max="48"></div>
@@ -550,14 +552,13 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
         <div class="sites" data-sites></div>
         <div class="fields" style="margin-top:12px">
           <div class="field"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
-          <div class="field"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
-            <span class="hint">Runs while your AI app is open, until a hard stop. Budgets are in Settings → Auto-run.</span></div>
+
         </div>
       </section>
       <section class="wstep" data-step="email"><h3>Your email</h3><p>FreeApply reads your email for employer replies (interview invites, rejections, offers) and tracks them for you. Connect Gmail with an app password: it stays on this computer and your AI assistant never sees it. If you'd rather not, choose "I'll enter all passwords myself": you then sign in to every site yourself, and replies can come through your AI app's Gmail connector.</p>
         <div data-email></div>
       </section>
-      <section class="wstep" data-step="done"><h3>You're set</h3><p>Ask your AI assistant to "find and apply to jobs". You can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
+      <section class="wstep" data-step="done"><h3>You're set</h3><p>FreeApply now keeps applying on its own while your AI app is open. Tell your AI assistant you're done so it can start. Start and Stop are at the top of every page, you can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
     </form>
     <div class="btnrow"><button type="button" class="btn" id="wBack">Back</button><span style="flex:1"></span>
       <button type="button" class="btn" id="wLater">Finish later</button><button type="button" class="btn green" id="wNext">Next</button></div>
@@ -630,20 +631,21 @@ document.addEventListener("click", async (e) => {
       const host = box.querySelector("[data-em-host]").value.trim();
       const r = await api("/api/email/save", {address: box.querySelector("[data-em-address]").value.trim(),
         password: box.querySelector("[data-em-pass]").value, ...(host ? {host} : {})});
-      if (r.ok) { toast("Email connected"); S.missing = r.missing; await refreshAfterEmail(); } else msg(r.error);
+      if (r.ok) { toast("Email connected"); S.missing = r.missing; await refreshAfterEmail();
+        if ($("#wiz").classList.contains("on") && WSTEPS[WI]?.dataset.step === "email") wizAfterEmail(); } else msg(r.error);
     } catch (err) { msg(err.message); } finally { btn.disabled = false; }
   } else if (e.target.matches("[data-em-remove]")) {
     const r = await api("/api/email/remove", {}); toast("Email login removed from this computer"); S.missing = r.missing; await refreshAfterEmail();
   } else if (e.target.matches("[data-em-manual]")) {
     const r = await api("/api/settings", {gmail: {manual_logins: true}}); S.settings = r.settings; S.missing = r.missing;
     toast("OK: you'll sign in to sites yourself"); await refreshAfterEmail();
-    if ($("#wiz").classList.contains("on") && WSTEPS[WI]?.dataset.step === "email") wizShow(WI + 1);
+    if ($("#wiz").classList.contains("on") && WSTEPS[WI]?.dataset.step === "email") wizAfterEmail();
   }
 });
 // After the email login or the choice changes: the required-fields marks, the setup banner and both boxes.
 async function refreshAfterEmail(){
   try { const r = await api("/api/settings"); S.settings = r.settings; S.missing = r.missing; } catch {}
-  fillSettings(); renderEmail();
+  fillSettings(); renderEmail(); loadAutorun();
 }
 const toast = (m, err) => { const t = $("#toast"); t.textContent = m; t.className = "toast on" + (err ? " err" : ""); clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast", 2600); };
 const fmtDate = s => s ? s.slice(0,10) : "—";
@@ -651,7 +653,7 @@ const fmtDate = s => s ? s.slice(0,10) : "—";
 const localStamp = s => { const d = /(?:z|[+-]\d\d:?\d\d)$/i.test(s || "") && new Date(s);
   return d && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0,16).replace("T"," ") : (s || "").slice(0,16).replace("T"," "); };
 const ago = s => { if (!s) return "never"; const m = (Date.now() - new Date(s)) / 6e4; return m < 60 ? Math.round(m)+"m ago" : m < 1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
-let S = {settings:null, statuses:{}, outcomes:{}, missing:[]}, JOBS = [], REPLIES = [], sortJ = {k:"submitted_at", d:-1}, sortR = {k:"received_at", d:-1};
+let S = {settings:null, statuses:{}, outcomes:{}, missing:[]}, JOBS = [], REPLIES = [], INBOX = [], sortJ = {k:"submitted_at", d:-1}, sortR = {k:"received_at", d:-1};
 
 /* plain words for status codes */
 const STATUS_WORDS = {found: "Found", ready: "Ready to send", applied: "Applied", skipped: "Skipped", needs_info: "Needs your answer",
@@ -676,7 +678,7 @@ function renderNextStep(st){
   const box = $("#nextStep");
   let ico = "✓", title = "You're all set.", text = "Ask your AI app: \"Find me jobs and apply.\" New applications show up here.", go = "", label = "", warn = false;
   if (!st.setup_complete) { ico = "①"; title = "Finish setting up"; text = "Add your resume and what you're looking for. It takes about 5 minutes."; go = "settings"; label = "Open Settings"; warn = true; }
-  else if (st.needs_you) { ico = "!"; title = `${st.needs_you} job${st.needs_you == 1 ? " needs" : "s need"} you`; text = "Answer a question or create an account, then FreeApply continues."; go = "issues"; label = "See what's needed"; warn = true; }
+  else if (st.needs_you) { ico = "!"; title = `${st.needs_you} job${st.needs_you == 1 ? " needs" : "s need"} you`; text = "Answer a question, make an account or finish an application yourself. Everything else keeps going."; go = "issues"; label = "See what's needed"; warn = true; }
   else if (st.interviews) { ico = "★"; title = `${st.interviews} interview${st.interviews == 1 ? "" : "s"}`; text = "Check Replies for the employer's emails and next steps."; go = "replies"; label = "Open Replies"; }
   box.className = "panel nextstep" + (warn ? " warn" : "");
   box.innerHTML = `<div class="ico">${ico}</div><div class="txt"><b>${esc(title)}</b><span>${esc(text)}</span></div>` +
@@ -718,7 +720,7 @@ function renderStats(st){
   // funnel
   const f = [["Applied", st.applied], ["Responded", st.responded], ["Interview", st.interviews + st.offers], ["Offer", st.offers]], fm = Math.max(1, st.applied);
   $("#funnel").innerHTML = f.map(([l, n]) => `<div class="row"><div class="lab">${l}</div><div class="track"><div class="fill" style="width:${Math.max(4, 100*n/fm)}%">${n}</div></div></div>`).join("") +
-    `<div class="count" style="margin-top:10px">Last Gmail check: ${ago(st.last_reply_check)}</div>`;
+    `<div class="count" style="margin-top:10px">Last email check: ${ago([st.inbox_checked_at, st.last_reply_check].filter(Boolean).sort().at(-1))}</div>`;
   $("#topJobs").innerHTML = st.top_jobs.length ? st.top_jobs.map(j => `<li><div class="t"><b>${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a>` : esc(j.title)}</b><span>${esc(j.company)}${j.pay_text ? " · " + esc(j.pay_text) : ""}</span></div>${j.outcome ? `<span class="badge b-${esc(j.outcome)}">${esc(j.outcome)}</span>` : ""}<span class="badge b-applied">${j.fit_score ?? "—"}</span></li>`).join("") : `<li class="empty">No applications yet</li>`;
   const cm = Math.max(1, ...st.top_companies.map(c => c.n));
   $("#topCos").innerHTML = st.top_companies.length ? st.top_companies.map(c => `<li><div class="t"><b>${esc(c.company)}</b><div class="hbar"><i style="width:${100*c.n/cm}%"></i></div></div><span class="count">${c.n}</span></li>`).join("") : `<li class="empty">—</li>`;
@@ -726,9 +728,11 @@ function renderStats(st){
   const ISS = ["needs_info", "needs_account", "blocked"];
   $("#statusList").innerHTML = ss.map(([k,n]) => { const b = `<span class="badge b-${esc(k)}">${esc(statusWord(k))}</span>`;
     return `<li><div class="t">${ISS.includes(k) ? `<a class="issue" href="#issues" data-iss="${k}" title="Resolve these">${b} <span class="count">→ resolve</span></a>` : b}</div><span class="count">${n}</span></li>`; }).join("") || `<li class="empty">—</li>`;
-  $("#setupPill").textContent = st.setup_complete ? "● Ready" : "● Setup needed";
-  $("#setupPill").className = "pill " + (st.setup_complete ? "ok" : "warn");
-  $("#mailPill").textContent = "✉ Replies checked " + ago(st.last_reply_check);
+  const checked = [st.inbox_checked_at, st.last_reply_check].filter(Boolean).sort().at(-1);
+  $("#mailPill").textContent = st.inbox_error ? "✉ Email check failed" : st.inbox_new ? `✉ ${st.inbox_new} new email${st.inbox_new > 1 ? "s" : ""}` : "✉ Email checked " + ago(checked);
+  $("#mailPill").className = "pill " + (st.inbox_error ? "warn" : st.inbox_new ? "ok" : "");
+  $("#mailPill").title = st.inbox_error ? `The mail server said: ${st.inbox_error}. Check Settings → Email replies.` : "";
+  $("#inboxNow").hidden = !st.email_login;
   $("#welcome").style.display = st.setup_complete ? "none" : "block";
 }
 
@@ -779,11 +783,15 @@ $("#csv").onclick = () => {
 /* replies table */
 function renderReplies(){
   const rows = [...REPLIES].sort(sorter(sortR));
-  $("#rcount").textContent = `${rows.length} emails recorded`;
-  $("#repTable tbody").innerHTML = rows.length ? rows.map(r => `<tr><td class="mono">${esc(localStamp(r.received_at||r.recorded_at))}</td>
+  $("#rcount").textContent = `${rows.length} emails recorded${INBOX.length ? ` · ${INBOX.length} new` : ""}`;
+  const fresh = INBOX.map(r => `<tr><td class="mono">${esc(localStamp(r.received_at||r.found_at))}</td>
+    <td><b>${esc(r.company||"")}</b></td><td><span class="badge b-new">new</span></td>
+    <td>${esc(r.subject||"")}<div class="sub">Your AI app sorts this at its next reply check.</div></td>
+    <td class="mono">${esc(r.sender||"")}</td><td></td></tr>`).join("");
+  $("#repTable tbody").innerHTML = fresh + (rows.length || fresh ? rows.map(r => `<tr><td class="mono">${esc(localStamp(r.received_at||r.recorded_at))}</td>
     <td><b>${esc(r.company||"")}</b>${r.title ? `<div class="sub">${esc(r.title)}</div>` : ""}</td>
     <td><span class="badge b-${esc(r.kind)}">${esc(r.kind)}</span></td><td>${esc(r.subject||"")}${r.summary ? `<div class="sub">${esc(r.summary)}</div>` : ""}</td>
-    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks Gmail on its schedule.</td></tr>`;
+    <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks Gmail on its schedule.</td></tr>`);
 }
 $$("#repTable th").forEach(th => th.onclick = () => { sortR = {k: th.dataset.k, d: sortR.k === th.dataset.k ? -sortR.d : -1}; renderReplies(); });
 
@@ -905,14 +913,45 @@ function readSites(box){
   return {sources, signed_in, signed_out};
 }
 
-/* auto-run status and the Stop button */
+/* auto-run: the top bar's status and Start/Stop, and the details in Settings */
+const hhmm = iso => new Date(iso).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+function renderRun(a){
+  const r = a.running, pill = $("#runPill"), btn = $("#runBtn");
+  const [text, cls, tip] = {
+    setup: ["● Setup needed", "warn", "Finish setup and FreeApply starts applying on its own."],
+    off: ["● Stopped", "", a.waiting ? "Press Start and FreeApply begins within seconds."
+      : `Press Start and FreeApply begins ${a.next_run_at ? "by " + hhmm(a.next_run_at) : "the next time your AI app checks in"}, then keeps applying while your AI app is open.`],
+    schedule: ["● Waiting for your AI app", "warn", 'Tell your AI assistant "find and apply to jobs" once so it can start.'],
+    paused: [/daily cap/.test(a.reason || "") ? "● Paused · daily limit reached" : "● Paused", "warn", "FreeApply starts again by itself when this clears."],
+    on: [`● On · looks again ${a.next_run_at ? "at " + hhmm(a.next_run_at) : "soon"}`, "ok", "FreeApply keeps applying while your AI app is open and the computer is awake. It's between searches now and looks for new jobs again at this time."],
+    running: [`● Running${a.activity ? " · " + a.activity : ""}`, "ok", r ? `${r.applied} applied so far. Press Stop to end it before the next job.` : "Press Stop to end it before the next job."],
+    stopping: ["● Stopping…", "warn", "The run ends before its next job."],
+  }[a.state] || ["● …", "", ""];
+  pill.textContent = text; pill.className = "pill " + cls; pill.title = tip;
+  btn.hidden = false; btn.disabled = a.state === "stopping";
+  btn.dataset.act = a.state === "setup" ? "setup" : a.state === "off" ? "start" : "stop";
+  btn.textContent = {setup: "Finish setup", start: "▶ Start", stop: a.state === "stopping" ? "Stopping…" : "■ Stop"}[btn.dataset.act];
+  btn.className = "btn sm " + (btn.dataset.act === "stop" ? "red" : "green");
+}
+$("#runBtn").onclick = async () => {
+  const act = $("#runBtn").dataset.act;
+  if (act === "setup") return S.missing?.length ? wizOpen() : show("settings");
+  try {
+    const a = await api("/api/autorun/switch", {on: act === "start"});
+    S.settings.autorun = {...S.settings.autorun, enabled: a.enabled}; renderRun(a);
+    toast(act === "stop" ? (a.running ? "Stopped. The run ends before its next job." : "Stopped. FreeApply won't apply on its own until you press Start.")
+      : a.waiting ? "Started. FreeApply begins in a few seconds."
+      : a.schedule_created ? `Started. FreeApply begins by ${hhmm(a.next_run_at)} and keeps going while your AI app is open.`
+      : 'Started. Tell your AI assistant "find and apply to jobs" once so it can start.');
+  } catch (err) { toast(err.message, 1); }
+};
 async function loadAutorun(){
   try {
     const a = await api("/api/autorun"), r = a.running;
+    renderRun(a);
     $("#arInfo").innerHTML = `<span>Schedule</span><span>${!a.enabled ? "off" : a.schedule_created ? "set up in your AI app" : "not set up yet: ask your AI assistant to set up FreeApply"}</span>
-      <span>Now</span><span>${r ? `running · ${esc(r.applied)} applied · ${esc(r.minutes_left)} min left${r.stop_requested ? " · stopping" : ""}` : "not running"}</span>
+      <span>Now</span><span>${r ? `running · ${esc(r.applied)} applied${r.minutes_left != null ? ` · ${esc(r.minutes_left)} min left` : ""}${r.stop_requested ? " · stopping" : ""}` : "between runs"}</span>
       ${a.recent?.length ? `<span>Last run</span><span>${esc(a.recent[0].summary)}</span>` : ""}`;
-    $("#arStop").hidden = !r || r.stop_requested;
     const out = (a.sites || []).filter(x => x.signed_out_at);
     $("#siteWarn").style.display = out.length ? "block" : "none";
     $("#siteWarn").innerHTML = out.length ? `<b>${esc(out.map(x => x.name).join(", "))} signed you out.</b> Sign in again on the site, then tick "I'm signed in" in <a href="#settings" data-go="settings">Settings → Job sites</a>. FreeApply keeps applying on your other sites meanwhile.` : "";
@@ -934,13 +973,12 @@ async function loadSponsor(){
 document.addEventListener("click", e => { const a = e.target.closest("a[data-ad]"); if (!a) return;
   fetch("/api/sponsor/click", {method: "POST", keepalive: true, headers: {"Content-Type": "application/json", "X-FreeApply": "1"},
     body: JSON.stringify({id: a.dataset.ad})}).catch(() => {}); });
-$("#arStop").onclick = async () => { await api("/api/autorun/stop", {}); toast("The run stops before its next job"); loadAutorun(); };
 
 /* setup wizard: after the Terms on a fresh install, before the dashboard; each step saves as you go */
 const WSTEPS = $$("#wform .wstep");
 const STEP_KEYS = {profile: ["profile.full_name", "profile.email"], targets: ["targets.desired_roles", "targets.min_pay", "targets.locations"],
   eligibility: ["eligibility.work_authorized"], resume: ["resume.primary"], email: ["email.login"]};
-let WI = 0;
+let WI = 0, WSTART = 0;
 const wizNeeded = () => { const o = S.settings?.onboarding || {}; return !!S.missing?.length && !o.completed_at && !o.dismissed_at; };
 function wizOpen(){
   fillForm($("#wform"));
@@ -948,7 +986,15 @@ function wizOpen(){
   $("#wiz").classList.add("on"); document.body.style.overflow = "hidden";
   const miss = new Set(S.missing.map(m => m.key));
   const first = WSTEPS.findIndex(st => (STEP_KEYS[st.dataset.step] || []).some(k => miss.has(k)));
-  wizShow(first < 0 ? 0 : first);
+  wizShow(WSTART = first < 0 ? 0 : first);
+}
+// After the email step: the first step still missing something, else the first page if the wizard opened past it
+// (an upgrade opens at email), else on to the end.
+function wizAfterEmail(){
+  const miss = new Set(S.missing.map(m => m.key));
+  const first = WSTEPS.findIndex(st => (STEP_KEYS[st.dataset.step] || []).some(k => miss.has(k)));
+  const to = first >= 0 ? first : WSTART > 0 ? 0 : WI + 1;
+  WSTART = 0; wizShow(to);
 }
 function wizClose(){ $("#wiz").classList.remove("on"); document.body.style.overflow = ""; }
 function wizShow(i){
@@ -958,7 +1004,7 @@ function wizShow(i){
   $("#wizBar").style.width = `${Math.round(100 * (i + 1) / WSTEPS.length)}%`;
   $("#wBack").disabled = i === 0; $("#wNext").textContent = last ? "Go to dashboard" : "Next"; $("#wLater").hidden = last; $("#wMsg").textContent = "";
 }
-async function wizSave(patch){ const r = await api("/api/settings", patch); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); fillForm($("#wform")); }
+async function wizSave(patch){ const r = await api("/api/settings", patch); S.settings = r.settings; S.missing = r.missing; S.models = r.models; fillSettings(); fillForm($("#wform")); loadAutorun(); }
 $("#wBack").onclick = () => wizShow(Math.max(0, WI - 1));
 $("#wNext").onclick = async () => {
   const st = WSTEPS[WI], key = st.dataset.step;
@@ -968,7 +1014,7 @@ $("#wNext").onclick = async () => {
     const left = S.missing.filter(m => (STEP_KEYS[key] || []).includes(m.key));
     if (left.length && key === "email") return $("#wMsg").textContent = `Connect your email, or choose "I'll enter all passwords myself".`;
     if (left.length) return $("#wMsg").textContent = `Required: ${left.map(m => m.label).join(", ")}`;
-    wizShow(WI + 1);
+    key === "email" ? wizAfterEmail() : wizShow(WI + 1);
   } catch (err) { $("#wMsg").textContent = err.message; }
 };
 $("#wLater").onclick = async () => {
@@ -1013,9 +1059,11 @@ const BLOCKED = {
   captcha: ["The site asked to prove you're a person", "Sites use these checks, like \"I'm not a robot\" puzzles, to stop automated tools. FreeApply doesn't try to get past them."],
   code: ["The site sent you a code", "The site wants a code it sent to your email or phone. FreeApply only reads your email when you've allowed it to."],
   warning: ["The site warned about automated use", "FreeApply stopped there to keep your account on that site safe."],
+  document: ["The application asks for a document FreeApply doesn't have", "It wants a file such as a transcript or a work sample. You can finish this one yourself on the site."],
+  essay: ["The application asks something only you can answer", "It wants an answer in your own words, like a short story from your own experience. You can finish this one yourself on the site."],
   other: ["FreeApply couldn't finish this application", "Something on the site needed a person to look at it."],
 };
-const stuckJobs = () => [...ISSUES.blocked, ...ISSUES.needs_info.filter(j => !j.questions.length).map(j => ({...j, kind: "other"}))];
+const stuckJobs = () => [...ISSUES.blocked, ...ISSUES.needs_info.filter(j => !j.questions.length).map(j => ({...j, kind: j.kind || "other"}))];
 function renderIssues(){
   const I = ISSUES, open = (I.questions || []).filter(g => !g.done).length, stuck = stuckJobs();
   $("#cNI").textContent = `(${open})`; $("#cNA").textContent = `(${(I.accounts || []).length})`; $("#cBL").textContent = `(${stuck.length})`;
@@ -1049,7 +1097,7 @@ function renderAccounts(){
         <select data-email>${me ? `<option value="${esc(me)}">${esc(me)}</option>` : ""}<option value="__other">Another email…</option></select>
         <input type="email" data-other placeholder="you@example.com" ${me ? "hidden" : ""}></div>`}
       <div class="qfor">${a.jobs.length > 1 ? `${a.jobs.length} jobs are waiting on this account: ` : "For "}${jobLinks(a.jobs)}</div>
-      ${a.note ? `<div class="qform adv">FreeApply's note: ${esc(a.note)}</div>` : ""}
+      ${a.note ? `<div class="qform adv">Details from your AI assistant: ${esc(a.note)}</div>` : ""}
       <div class="btnrow">${a.signup_url ? `<a class="btn" href="${esc(a.signup_url)}" target="_blank" rel="noopener">${k ? "Open the site ↗" : "Open sign-up ↗"}</a>` : ""}
         <button type="button" class="btn green" data-acct="${i}">${k ? "I'm signed in" : "I made the account"}</button></div></div>`; }).join("")
     : `<div class="panel empty">No jobs are waiting on an account.</div>`;
@@ -1058,7 +1106,7 @@ function renderBlocked(list){
   $("#iss-blocked").innerHTML = list.length ? list.map(j => { const [head, text] = BLOCKED[j.kind] || BLOCKED.other;
     return `<div class="panel icard qcard">${jobHead(j)}
       <div class="qp">${esc(head)}</div><div class="qh">${esc(text)}</div>
-      ${j.status_note ? `<div class="qform adv">FreeApply's note: ${esc(j.status_note)}</div>` : ""}
+      ${j.status_note ? `<div class="qform adv">Details from your AI assistant: ${esc(j.status_note)}</div>` : ""}
       <div class="qh" style="margin:12px 0 0">What would you like to do? You can finish it yourself on the site, or let FreeApply try again later.</div>
       <div class="btnrow"><button type="button" class="btn green" data-done="${j.id}">I applied myself</button><button type="button" class="btn" data-retry="${j.id}">Try again later</button><button type="button" class="btn" data-skip="${j.id}">Skip this job</button></div></div>`; }).join("")
     : `<div class="panel empty">Nothing is blocked.</div>`;
@@ -1244,8 +1292,8 @@ $("#pbList").addEventListener("click", async e => {
 async function load(skipSettings){
   try {
     if (!CONSENT || !CONSENT.ok) { await checkGate(); if (!CONSENT.ok) return; }
-    const [st, jobs, reps, iss] = await Promise.all([api("/api/stats"), api("/api/jobs"), api("/api/replies"), api("/api/issues")]);
-    JOBS = jobs; REPLIES = reps; ISSUES = iss; renderStats(st);
+    const [st, jobs, reps, iss, inb] = await Promise.all([api("/api/stats"), api("/api/jobs"), api("/api/replies"), api("/api/issues"), api("/api/inbox")]);
+    JOBS = jobs; REPLIES = reps; ISSUES = iss; INBOX = inb; renderStats(st);
     if (!skipSettings) { const s = await api("/api/settings"); S = {...s};
       $("#fStatus").innerHTML = `<option value="">All statuses</option>` + Object.keys(s.statuses).map(k => `<option value="${k}">${k.replace("_"," ")}</option>`).join("");
       $("#fOutcome").innerHTML = `<option value="">All outcomes</option><option value="__none">No response</option>` + Object.keys(s.outcomes).map(k => `<option>${k}</option>`).join("");
@@ -1265,6 +1313,18 @@ show(location.hash.slice(1) || "overview");
 fillDocTabs();
 load();
 setInterval(() => load(true), 60000);
+/* live: every few seconds, ask whether anything changed (here or in an AI app) and redraw when it did */
+let STAMP = null;
+setInterval(async () => {
+  if (document.hidden || $("#wiz").classList.contains("on") || !CONSENT?.ok) return;
+  try { const {stamp} = await api("/api/changes"); if (STAMP && stamp !== STAMP) load(true); STAMP = stamp; } catch {}
+}, 3000);
+$("#inboxNow").onclick = async () => {
+  const b = $("#inboxNow"); b.disabled = true; b.textContent = "Checking…";
+  try { const r = await api("/api/inbox/check", {});
+    toast(r.error ? "Email check failed: " + r.error : r.checked ? (r.new ? `${r.new} new email${r.new > 1 ? "s" : ""}` : "No new emails") : "Email checks are off", !!r.error); load(true); }
+  catch (err) { toast(err.message, 1); } finally { b.disabled = false; b.textContent = "Check email now"; }
+};
 </script>
 </body>
 </html>
