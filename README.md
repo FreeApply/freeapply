@@ -1,5 +1,8 @@
 # FreeApply
 
+[![FreeApply MCP server on Glama](https://glama.ai/mcp/servers/FreeApply/freeapply/badges/score.svg)](https://glama.ai/mcp/servers/FreeApply/freeapply)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/freeapply/freeapply)
+
 Free AI job applications that run on your computer. FreeApply finds jobs that fit your settings, applies through the
 AI app you already use, tracks every application in a local dashboard and checks Gmail for employer replies. Any role,
 any field.
@@ -7,7 +10,7 @@ any field.
 **Website:** https://www.mybotsai.com · **Install:** https://www.mybotsai.com/install/ ·
 **Downloads:** https://www.mybotsai.com/appserver/ · **Release notes:** [release-notes/](release-notes/README.md) · **Source:** https://github.com/FreeApply/freeapply
 
-Current version: **1.0.3** ([notes](release-notes/1.0.3.md)). The app and its legal documents share one version
+Current version: **1.0.4** ([notes](release-notes/1.0.4.md)). The app and its legal documents share one version
 number.
 
 ## What it does
@@ -100,7 +103,7 @@ skip a job, with the duplicate, job-site and pay-floor checks), `freeapply_check
 `freeapply_user_answers` (get a job's answers or save a reusable one), `freeapply_find_site_account`,
 `freeapply_clear_to_submit` (clearance before each submit, and the unattended run's budgets), `freeapply_update_job` (your
 side: found to applied), `freeapply_report_site_problem`, `freeapply_autorun` (start or finish unattended runs),
-`freeapply_list_jobs`, `freeapply_job_stats`, `freeapply_reply_check` (start or finish a Gmail check),
+`freeapply_list_jobs`, `freeapply_job_stats`, `freeapply_reply_check` (frames an email reply check; with an app password saved in Settings it reads, stars and labels the replies itself),
 `freeapply_record_outcome` (what an employer did, from an email or the user), `freeapply_shared_data` (preview or send
 shared data). Removing a job is a dashboard action only (Applications → Remove); the agent has no tool for it.
 Every call is checked against the tool's parameters first: a missing, unknown or wrongly typed parameter returns one

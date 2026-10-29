@@ -11,6 +11,8 @@ import * as autorun from "./autorun.js";
 import * as ads from "./ads.js";
 import * as errorlog from "./errorlog.js";
 import * as models from "./models.js";
+import * as secrets from "./secrets.js";
+import { testLogin } from "./imap.js";
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "web");
 const MAX_BODY = 15 * 1024 * 1024;
@@ -81,6 +83,8 @@ function doGet(req, res, u) {
     case "/index.html": return send(res, 200, fs.readFileSync(path.join(WEB, "index.html")), "text/html; charset=utf-8");
     case "/api/health": return send(res, 200, { app: "freeapply", version: store.VERSION, runtime: "node" });
     case "/api/stats": return send(res, 200, store.stats());
+    // Whether an email login is saved, and for which address: never the password.
+    case "/api/email": return send(res, 200, secrets.emailStatus());
     case "/api/jobs": return send(res, 200, store.listJobs(q.status, q.outcome, q.q));
     case "/api/replies": return send(res, 200, store.listReplies());
     case "/api/settings": {
@@ -108,6 +112,23 @@ async function doPost(req, res, u) {
       bg(() => sharing.sync(true));
       return send(res, 200, { ok: true, gpc: g });
     case "/api/autorun/stop": return send(res, 200, autorun.requestStop());
+    // The email login is checked with the mail server first and saved only if it works; only the local .env keeps it.
+    case "/api/email/save": {
+      const login = secrets.checkLogin(body);
+      try {
+        await testLogin(login);
+      } catch (e) {
+        return send(res, 200, { ok: false, error: e.message, ...secrets.emailStatus() });
+      }
+      const st = secrets.saveEmailLogin(login);
+      store.refreshSetup();
+      return send(res, 200, { ok: true, ...st, missing: store.missingFields() });
+    }
+    case "/api/email/remove": {
+      const st = secrets.removeEmailLogin();
+      store.refreshSetup();
+      return send(res, 200, { ok: true, ...st, missing: store.missingFields() });
+    }
     case "/api/sponsor/click": return send(res, 200, ads.click(String(body.id || "")));
     case "/api/issues/answer": return send(res, 200, store.answerQuestions(body.answers));
     case "/api/issues/account": return send(res, 200, store.markAccount(Number(body.job_id), String(body.email || "").trim(), body.note));

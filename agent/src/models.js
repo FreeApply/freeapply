@@ -85,3 +85,24 @@ export function resolve({ rules = env.rules(), workflow = env.workflow(), settin
   return { can_delegate: !!scan.can_delegate, rescan, app: scan.app || env.client?.name || null, current: scan.current || null,
     levels, lanes, unfilled, available: scan.available || [], efforts: scan.efforts || [], scanned_at: scan.scanned_at || null };
 }
+
+/** The procedure text one lane needs: the whole text without its "## Lanes" section (only the agent that starts helpers
+ * needs it) and with "## Loop" cut to the numbered steps in `steps`. Null when `steps` is empty or the text lacks that
+ * shape, so the caller sends the whole procedure. */
+export function laneProcedure(text, steps) {
+  if (!Array.isArray(steps) || !steps.length) return null;
+  const out = [], seen = new Set();
+  let section = "", keep = null;
+  for (const line of String(text).split(/\r?\n/)) {
+    const h = /^## (.+)$/.exec(line);
+    if (h) { section = h[1].trim(); keep = null; }
+    if (/^Lanes\b/.test(section)) continue;
+    if (section === "Loop" && !h) {
+      const n = /^(\d+)\. /.exec(line);
+      if (n) { keep = steps.includes(Number(n[1])); if (keep) seen.add(Number(n[1])); }
+      if (keep === false) continue;
+    }
+    out.push(line);
+  }
+  return seen.size === steps.length && out.includes("## Loop") ? out.join("\n").replace(/\n{3,}/g, "\n\n") : null;
+}

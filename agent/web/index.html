@@ -194,6 +194,8 @@ details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 pre.preview{max-height:320px;overflow:auto;background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:10px;padding:10px;font:11.5px/1.5 var(--mono);color:#cfc7f2;white-space:pre-wrap;word-break:break-word}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin:8px 0} .kv span:nth-child(odd){color:var(--muted);font-family:var(--mono)}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.emsteps{margin:0 0 10px 18px;padding:0;font-size:13px;line-height:1.7} .emsteps .btn{margin-right:6px}
+.empw{display:flex;gap:6px} .empw input{flex:1;min-width:0} .emok{font-size:13px} .emok b{color:var(--green)}
 /* Problems (Settings → Data sharing): one card per report with its exact contents, a required consent box, Send and Dismiss. */
 .prob{margin-bottom:12px} .prob h4{margin:0 0 3px;font-size:15px}
 .prob .pmsg{margin:0 0 10px;font:12.5px/1.5 var(--mono);color:var(--text);word-break:break-word}
@@ -315,7 +317,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
   <!-- REPLIES -->
   <section class="view" id="v-replies">
     <div class="toolbar"><span class="count" id="rcount"></span><div class="spacer"></div>
-      <span class="count">Checked by the agent every <b id="ivl">4</b> h through your Gmail connector</span></div>
+      <span class="count">Checked every <b id="ivl">4</b> h, by FreeApply with your email login or through your AI app's Gmail connector</span></div>
     <div class="tablewrap"><table id="repTable">
       <thead><tr><th data-k="received_at">Received</th><th data-k="company">Company</th><th data-k="kind">Type</th>
         <th data-k="subject">Subject</th><th data-k="sender" class="adv">From</th><th data-k="mail_action" class="adv">Gmail</th></tr></thead>
@@ -401,7 +403,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
         </div>
       </div>
       <div class="panel"><h3>Job sites</h3>
-        <p class="count" style="margin:0 0 10px">Where FreeApply may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses. FreeApply never asks for or stores passwords.</p>
+        <p class="count" style="margin:0 0 10px">Where FreeApply may search and apply for you. For sites with an account, sign in yourself once in the browser your AI assistant uses, or save your password in that browser (Chrome offers to when you sign in) so it fills it in when a site asks. FreeApply never sees or stores job-site passwords.</p>
         <div class="sites" data-sites></div>
         <div class="fields adv" style="margin-top:10px">
           <div class="field full"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
@@ -412,7 +414,8 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
           <span class="hint">Runs while your AI app is open and stops on its own at the first hard stop. Budgets are under Advanced.</span>
           <div class="kv" id="arInfo"></div>
           <div class="btnrow"><button type="button" class="btn red sm" id="arStop" hidden>Stop the current run</button></div></div>
-        <div class="field"><label>Check Gmail for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
+        <div class="field full"><label>Email login</label><div data-email></div></div>
+        <div class="field"><label>Check email for replies</label><select name="gmail.enabled" data-bool><option value="true">On</option><option value="false">Off</option></select></div>
         <div class="field adv"><label>When a reply arrives</label><select name="gmail.action">
           <option value="star">Star it</option><option value="label">Add to a label (folder)</option>
           <option value="star_and_label">Star and label</option><option value="none">Just track it</option></select></div>
@@ -451,7 +454,7 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
           <div class="field"><label>Check every (hours)</label><input name="gmail.interval_hours" type="number" min="1" max="48"></div>
           <div class="field"><label>Label name</label><input name="gmail.label_name"></div>
           <div class="field full"><label>Count "we received your application" emails</label><select name="gmail.count_acknowledgements" data-bool><option value="false">No, only real replies</option><option value="true">Yes</option></select>
-            <span class="hint">Uses the Gmail connector in Claude; FreeApply sets up the schedule on first run.</span></div>
+            <span class="hint">Uses your email login (Settings → Email replies) or your AI app's Gmail connector; FreeApply sets up the schedule on first run.</span></div>
         </div></div>
         <div class="panel" id="modelsPanel"><h3>AI models</h3>
           <p class="count" id="mdInfo" style="margin:0 0 10px"></p>
@@ -543,13 +546,16 @@ footer.legalinks a{color:var(--muted)} footer.legalinks a:hover{color:var(--gree
           <input type="file" id="wfile" accept=".pdf,.docx,.doc,.txt,.md,.rtf" hidden></div>
           <div class="hint" id="wresume"></div></div>
       </section>
-      <section class="wstep" data-step="sites"><h3>Job sites</h3><p>Choose where FreeApply may search and apply for you. For sites with an account, open the site and sign in yourself in the browser your AI assistant uses, then tick "I'm signed in". FreeApply never asks for or stores passwords. If a site signs you out, FreeApply keeps going on your other sites and asks you to sign in again.</p>
+      <section class="wstep" data-step="sites"><h3>Job sites</h3><p>Choose where FreeApply may search and apply for you. For sites with an account, open the site and sign in yourself in the browser your AI assistant uses, then tick "I'm signed in". Save the password in that browser when it offers, and it fills it in if a site asks you to sign in again. FreeApply never sees or stores job-site passwords. If a site signs you out, FreeApply keeps going on your other sites and asks you to sign in again.</p>
         <div class="sites" data-sites></div>
         <div class="fields" style="margin-top:12px">
           <div class="field"><label>Allow one-click apply (LinkedIn Easy Apply and similar)</label><select name="automation.easy_apply_allowed" data-bool><option value="false">No</option><option value="true">Yes</option></select></div>
           <div class="field"><label>Auto-run every hour, without prompts</label><select name="autorun.enabled" data-bool><option value="false">Off</option><option value="true">On</option></select>
             <span class="hint">Runs while your AI app is open, until a hard stop. Budgets are in Settings → Auto-run.</span></div>
         </div>
+      </section>
+      <section class="wstep" data-step="email"><h3>Your email</h3><p>FreeApply reads your email for employer replies (interview invites, rejections, offers) and tracks them for you. Connect Gmail with an app password: it stays on this computer and your AI assistant never sees it. If you'd rather not, choose "I'll enter all passwords myself": you then sign in to every site yourself, and replies can come through your AI app's Gmail connector.</p>
+        <div data-email></div>
       </section>
       <section class="wstep" data-step="done"><h3>You're set</h3><p>Ask your AI assistant to "find and apply to jobs". You can change anything later in Settings, and the Needs you tab lists anything FreeApply needs from you.</p></section>
     </form>
@@ -592,8 +598,58 @@ const api = async (path, body) => {
   const r = await fetch(path, body ? {method:"POST", headers:{"Content-Type":"application/json","X-FreeApply":"1"}, body:JSON.stringify(body)} : {});
   const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j;
 };
+/* email login: an app password kept only in FreeApply's local .env; the page never gets it back */
+async function renderEmail(){
+  let st; try { st = await api("/api/email"); } catch { return; }
+  for (const box of $$("[data-email]")) {
+    box.innerHTML = st.saved
+      ? `<div class="emok">Connected: <b>${esc(st.address)}</b>. FreeApply reads your replies itself; your AI assistant never sees the password.</div>
+         <div class="btnrow"><button type="button" class="btn sm" data-em-remove>Remove</button></div>`
+      : `<ol class="emsteps">
+           <li><a class="btn sm" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Open Google's app password page</a>Sign in if Google asks, type <b>FreeApply</b> as the name and click <b>Create</b>.</li>
+           <li>Copy the 16-letter password Google shows, come back here and click <b>Paste</b>.</li></ol>
+         <div class="fields">
+           <div class="field"><label>Gmail address</label><input type="email" data-em-address autocomplete="email" value="${esc(S.settings?.profile?.email || "")}"></div>
+           <div class="field"><label>App password</label><div class="empw"><input type="password" data-em-pass autocomplete="new-password" spellcheck="false"><button type="button" class="btn sm" data-em-paste>Paste</button></div></div>
+           <div class="field adv"><label>Mail server (not Gmail)</label><input data-em-host placeholder="imap.gmail.com"></div></div>
+         <div class="btnrow"><button type="button" class="btn green sm" data-em-save>Connect</button>${S.settings?.gmail?.manual_logins
+           ? `<span class="hint">You chose to enter all passwords yourself. Connect anytime to have FreeApply read replies.</span>`
+           : `<button type="button" class="btn sm" data-em-manual>I'll enter all passwords myself</button>`}<span class="hint" data-em-msg></span></div>
+         <span class="hint">Saved only on this computer, in FreeApply's .env file. No app password option on Google's page? Turn on <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">2-Step Verification</a> first, then open the page again.</span>`;
+  }
+}
+document.addEventListener("click", async (e) => {
+  const box = e.target.closest("[data-email]"); if (!box) return;
+  const msg = (m) => { const el = box.querySelector("[data-em-msg]"); if (el) el.textContent = m; };
+  if (e.target.matches("[data-em-paste]")) {
+    try { box.querySelector("[data-em-pass]").value = (await navigator.clipboard.readText()).trim(); msg(""); }
+    catch { msg("Your browser didn't allow pasting: click the box and press Ctrl+V."); }
+  } else if (e.target.matches("[data-em-save]")) {
+    const btn = e.target; btn.disabled = true; msg("Checking with the mail server…");
+    try {
+      const host = box.querySelector("[data-em-host]").value.trim();
+      const r = await api("/api/email/save", {address: box.querySelector("[data-em-address]").value.trim(),
+        password: box.querySelector("[data-em-pass]").value, ...(host ? {host} : {})});
+      if (r.ok) { toast("Email connected"); S.missing = r.missing; await refreshAfterEmail(); } else msg(r.error);
+    } catch (err) { msg(err.message); } finally { btn.disabled = false; }
+  } else if (e.target.matches("[data-em-remove]")) {
+    const r = await api("/api/email/remove", {}); toast("Email login removed from this computer"); S.missing = r.missing; await refreshAfterEmail();
+  } else if (e.target.matches("[data-em-manual]")) {
+    const r = await api("/api/settings", {gmail: {manual_logins: true}}); S.settings = r.settings; S.missing = r.missing;
+    toast("OK: you'll sign in to sites yourself"); await refreshAfterEmail();
+    if ($("#wiz").classList.contains("on") && WSTEPS[WI]?.dataset.step === "email") wizShow(WI + 1);
+  }
+});
+// After the email login or the choice changes: the required-fields marks, the setup banner and both boxes.
+async function refreshAfterEmail(){
+  try { const r = await api("/api/settings"); S.settings = r.settings; S.missing = r.missing; } catch {}
+  fillSettings(); renderEmail();
+}
 const toast = (m, err) => { const t = $("#toast"); t.textContent = m; t.className = "toast on" + (err ? " err" : ""); clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast", 2600); };
 const fmtDate = s => s ? s.slice(0,10) : "—";
+// "YYYY-MM-DD HH:MM" in the user's time; times saved in UTC by older versions are converted.
+const localStamp = s => { const d = /(?:z|[+-]\d\d:?\d\d)$/i.test(s || "") && new Date(s);
+  return d && !isNaN(d) ? new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0,16).replace("T"," ") : (s || "").slice(0,16).replace("T"," "); };
 const ago = s => { if (!s) return "never"; const m = (Date.now() - new Date(s)) / 6e4; return m < 60 ? Math.round(m)+"m ago" : m < 1440 ? Math.round(m/60)+"h ago" : Math.round(m/1440)+"d ago"; };
 let S = {settings:null, statuses:{}, outcomes:{}, missing:[]}, JOBS = [], REPLIES = [], sortJ = {k:"submitted_at", d:-1}, sortR = {k:"received_at", d:-1};
 
@@ -724,7 +780,7 @@ $("#csv").onclick = () => {
 function renderReplies(){
   const rows = [...REPLIES].sort(sorter(sortR));
   $("#rcount").textContent = `${rows.length} emails recorded`;
-  $("#repTable tbody").innerHTML = rows.length ? rows.map(r => `<tr><td class="mono">${esc((r.received_at||r.recorded_at||"").slice(0,16).replace("T"," "))}</td>
+  $("#repTable tbody").innerHTML = rows.length ? rows.map(r => `<tr><td class="mono">${esc(localStamp(r.received_at||r.recorded_at))}</td>
     <td><b>${esc(r.company||"")}</b>${r.title ? `<div class="sub">${esc(r.title)}</div>` : ""}</td>
     <td><span class="badge b-${esc(r.kind)}">${esc(r.kind)}</span></td><td>${esc(r.subject||"")}${r.summary ? `<div class="sub">${esc(r.summary)}</div>` : ""}</td>
     <td class="mono">${esc(r.sender||"")}</td><td class="mono">${esc(r.mail_action||"")}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No replies recorded yet. FreeApply checks Gmail on its schedule.</td></tr>`;
@@ -774,6 +830,7 @@ function fillSettings(){
   const s = S.settings;
   fillModels();
   fillForm($("#sform"));
+  renderEmail();
   // After fillForm: it resets the required-field marks, and a pick the app no longer offers shows as Automatic.
   $$("#mdFields [data-open]").forEach(f => f.classList.add("missing"));
   $$("#mdFields select").forEach(x => { if (x.selectedIndex < 0) x.value = ""; });
@@ -882,11 +939,12 @@ $("#arStop").onclick = async () => { await api("/api/autorun/stop", {}); toast("
 /* setup wizard: after the Terms on a fresh install, before the dashboard; each step saves as you go */
 const WSTEPS = $$("#wform .wstep");
 const STEP_KEYS = {profile: ["profile.full_name", "profile.email"], targets: ["targets.desired_roles", "targets.min_pay", "targets.locations"],
-  eligibility: ["eligibility.work_authorized"], resume: ["resume.primary"]};
+  eligibility: ["eligibility.work_authorized"], resume: ["resume.primary"], email: ["email.login"]};
 let WI = 0;
 const wizNeeded = () => { const o = S.settings?.onboarding || {}; return !!S.missing?.length && !o.completed_at && !o.dismissed_at; };
 function wizOpen(){
   fillForm($("#wform"));
+  renderEmail();
   $("#wiz").classList.add("on"); document.body.style.overflow = "hidden";
   const miss = new Set(S.missing.map(m => m.key));
   const first = WSTEPS.findIndex(st => (STEP_KEYS[st.dataset.step] || []).some(k => miss.has(k)));
@@ -908,6 +966,7 @@ $("#wNext").onclick = async () => {
     if (key === "done") { await wizSave({onboarding: {completed_at: nowLocal()}}); wizClose(); toast("You're all set."); return load(); }
     if (key !== "resume") await wizSave(readForm(st));
     const left = S.missing.filter(m => (STEP_KEYS[key] || []).includes(m.key));
+    if (left.length && key === "email") return $("#wMsg").textContent = `Connect your email, or choose "I'll enter all passwords myself".`;
     if (left.length) return $("#wMsg").textContent = `Required: ${left.map(m => m.label).join(", ")}`;
     wizShow(WI + 1);
   } catch (err) { $("#wMsg").textContent = err.message; }

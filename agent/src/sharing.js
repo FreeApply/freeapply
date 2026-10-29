@@ -16,7 +16,7 @@ export const CONTACT_EMAIL = "mybotsai@gmail.com";
 // below), not on every release. Change EFFECTIVE_DATE whenever the text changes.
 export const TERMS_VERSION = store.VERSION;
 export const PRIVACY_VERSION = store.VERSION;
-export const EFFECTIVE_DATE = "October 27, 2026";
+export const EFFECTIVE_DATE = "October 28, 2026";
 // The deployed server (Contabo VPS behind Caddy). With this empty, nothing is ever sent.
 export const DEFAULT_ENDPOINT = "https://www.mybotsai.com";
 const ENDPOINT = () => (process.env.FREEAPPLY_SYNC_URL || DEFAULT_ENDPOINT).replace(/\/+$/, "");

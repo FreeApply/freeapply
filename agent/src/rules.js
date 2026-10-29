@@ -125,7 +125,7 @@ export function claimJob(rules, j) {
 // Fields that belong to one status. With any other status they are refused, so nothing lands on the wrong record
 // (questions on an applied job would reach the user's Needs you tab).
 const STATUS_FIELDS = { questions: "needs_info", account_url: "needs_account", method: "applied", confirmation: "applied",
-  resume_path: "applied", cover_path: "applied", cover_text: "applied" };
+  resume_path: "applied", cover_path: "applied", cover_text: "applied", letter_sent: "applied" };
 
 export function agentSetStatus(rules, a) {
   const job = store.getJob(a.job_id);
@@ -146,6 +146,13 @@ export function agentSetStatus(rules, a) {
     const problems = checkText(rules, a.cover_text, { kind: "cover_letter", jobId: a.job_id, company: job.company });
     if (problems.length) throw new RuleError(`cover letter failed the truthfulness check (hard rule): ${problems.join("; ")}`);
   }
+  // A saved letter is on the record only if it went out: a text-box form or a failed upload can leave it behind.
+  const ownLetter = a.cover_path || a.cover_text;
+  if (a.letter_sent === false && ownLetter) throw new RuleError("letter_sent false contradicts cover_path/cover_text: leave those out");
+  if (a.status === "applied" && job.status !== "applied" && !ownLetter && typeof a.letter_sent !== "boolean" &&
+    store.coverLetter(a.job_id)) {
+    throw new RuleError("a cover letter is saved for this job: pass letter_sent true if it was attached or pasted, false if not");
+  }
   if (a.status === "applied" && job.status !== "applied" && !takeClearance(a.job_id)) {
     throw new RuleError("refused: call freeapply_clear_to_submit with this job_id right before submitting; recording 'applied' " +
       "needs that clearance (hard rule)");
@@ -158,10 +165,11 @@ export function agentSetStatus(rules, a) {
   }
   if (a.account_url) store.setAccountUrl(a.job_id, a.account_url); // checked before the status changes
   const before = store.ISSUE_STATUSES.includes(a.status) && job.status === a.status;
-  // The résumé sent is the documents copy unless the agent names another file; the letter was kept when it was saved.
+  // The résumé sent is the documents copy unless the agent names another file; the letter was kept when it was saved,
+  // and is dropped from the record when it was not sent.
   const resumePath = a.resume_path || (a.status === "applied" && job.status !== "applied" ? store.documentsInfo().resume : null);
   const out = store.setStatus(a.job_id, a.status, { note: a.note, method: a.method, confirmation: a.confirmation,
-    resumePath, coverPath: a.cover_path, coverText: a.cover_text });
+    resumePath, coverPath: a.cover_path, coverText: a.cover_text, dropCover: a.letter_sent === false && job.status !== "applied" });
   if (before) out.already_waiting = true; // the job was already waiting on the user for this
   if (a.questions?.length) {
     out.questions = store.addQuestions(a.job_id, a.questions);
@@ -188,7 +196,8 @@ const SETTING_CHOICES = {
 const NULLABLE = { "targets.min_pay": "number", "targets.max_commute_miles": "number", "eligibility.years_experience": "number",
   "eligibility.work_authorized": "boolean", "eligibility.needs_sponsorship": "boolean" };
 const AGENT_FIELDS = { resume: ["text", "profile"] };
-const KEPT_BY = { "gmail.last_check": "freeapply_reply_check sets it when a check finishes" };
+const KEPT_BY = { "gmail.last_check": "freeapply_reply_check sets it when a check finishes",
+  "gmail.manual_logins": "only the user chooses it, in the dashboard's Settings → Email replies" };
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const kindOf = (v) => (Array.isArray(v) ? "a list of text" : typeof v === "string" ? "text" : typeof v === "boolean" ? "true or false"
   : typeof v === "number" ? "a number" : "an object");
@@ -246,6 +255,13 @@ export function checkSettingsPatch(patch) {
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const present = (term, text) => new RegExp(`(?<![a-z0-9+#.])${esc(term)}(?![a-z0-9+#])`).test(text);
 const numberIn = (num, text) => new RegExp(`(?<!\\d)${esc(num)}(?!\\d)`).test(text);
+// Other forms of a claim word that back it: the résumé's "Leads a crew" backs a letter's "lead" or "led". Nouns such
+// as "manager" stay out, so "reported to the manager" never backs "managed".
+const CLAIM_FORMS = { lead: ["leads", "leading", "led"], led: ["lead", "leads", "leading"],
+  leader: ["lead", "leads", "leading", "led"], managed: ["manage", "manages", "managing"],
+  supervised: ["supervise", "supervises", "supervising"], mentored: ["mentors", "mentoring"],
+  spearheaded: ["spearhead", "spearheads", "spearheading"], directed: ["directs", "directing"] };
+const claimBacked = (word, blob) => [word, ...(CLAIM_FORMS[word] || [])].some((f) => present(f, blob));
 
 /** Everything the user has said about themselves: resume text and profile, settings, saved and job answers. */
 export function factBlob(s, jobId) {
@@ -324,12 +340,14 @@ export function saveCoverLetter(jobId, text) {
 export function checkText(rules, text, { kind = "answer", jobId = null, company = null } = {}) {
   const probs = [], low = String(text || "").toLowerCase();
   const blob = factBlob(store.loadSettings(), jobId);
-  const posting = jobId ? (store.one("SELECT description FROM jobs WHERE id=?", jobId)?.description || "").toLowerCase() : "";
+  // What the job itself says: its posting, title, pay, place and posting id (a letter may cite "BEC-JE-2207").
+  const job = jobId ? store.one("SELECT description, title, company, location, pay_text, external_id FROM jobs WHERE id=?", jobId) : null;
+  const posting = Object.values(job || {}).filter(Boolean).join("\n").toLowerCase();
   for (const term of rules.tech_terms || []) {
     if (present(term, low) && !present(term, blob)) probs.push(`'${term}' is not in the resume or settings`);
   }
   for (const w of rules.claim_words || []) {
-    if (present(w, low) && !present(w, blob)) probs.push(`claim word '${w}' is not supported by the resume or settings`);
+    if (present(w, low) && !claimBacked(w, blob)) probs.push(`claim word '${w}' is not supported by the resume or settings`);
   }
   for (const ban of rules.bans || []) {
     for (const m of low.matchAll(new RegExp(ban.pattern, "g"))) {

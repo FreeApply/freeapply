@@ -5,8 +5,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { emailStatus } from "./secrets.js";
 
-export const VERSION = "1.0.3";
+export const VERSION = "1.0.4";
 
 // Pipeline status of a job (what the agent did). Outcome (what the employer did) is separate.
 export const STATUSES = {
@@ -101,7 +102,8 @@ const DEFAULT_SETTINGS = {
   cover_letter: { write: "when_slot", tone: "professional", length: "standard", highlights: "", avoid: "", sign_off: "" },
   // sources: job sites from JOB_SITES the agent may use. signed_in: {site id: when the user confirmed they signed in
   // themselves in the browser the agent uses}. signed_out: {site id: when the agent found itself signed out}.
-  // FreeApply never asks for or stores passwords.
+  // FreeApply never asks for or stores job-site passwords: the browser the agent uses fills in the ones the user saved.
+  // The only credential it keeps is an optional email app password, in the local .env (secrets.js), never in here.
   automation: { sources: ["linkedin", "company_sites"], signed_in: {}, signed_out: {}, site_paused_until: {}, easy_apply_allowed: false,
     fit_threshold: 60, rate_per_minute: 3, daily_cap: null },
   // Unattended runs on a schedule. Only the user changes these (dashboard); the agent reports schedule changes
@@ -110,8 +112,9 @@ const DEFAULT_SETTINGS = {
   onboarding: { completed_at: null, dismissed_at: null },
   // Answers the user gave on the Needs you tab and chose to reuse: {normalized question: answer}.
   custom_answers: {},
+  // manual_logins: the user chose at setup to enter every password themselves instead of saving an email login.
   gmail: { enabled: true, interval_hours: 4, action: "star", label_name: "Job Replies",
-    count_acknowledgements: false, last_check: null, schedule_created: false },
+    count_acknowledgements: false, last_check: null, schedule_created: false, manual_logins: false },
   // The models the AI app can hand a step to, as it reported them (freeapply_update_settings, re-scanned after updates),
   // and the user's own pick per level in Advanced settings (empty: the signed catalog decides). See models.js.
   models: { app: null, current: null, can_delegate: false, available: [], efforts: [], scanned_at: null, scanned_for: null },
@@ -238,6 +241,8 @@ const pad = (n) => String(n).padStart(2, "0");
 export function now(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+/** A time from outside (an email's date, often in UTC) as local time like now(); one without a time zone stays as it is. */
+export const localTime = (s) => (s && /(?:z|[+-]\d\d:?\d\d)$/i.test(s) && Number.isFinite(Date.parse(s)) ? now(new Date(s)) : s);
 export const today = (d = new Date()) => now(d).slice(0, 10);
 export const daysAgo = (n) => today(new Date(Date.now() - n * 864e5));
 export const slug = (s, n = 40) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, n) || "x";
@@ -263,11 +268,18 @@ export function loadSettings() {
 }
 
 export function missingFields(s = loadSettings()) {
-  return REQUIRED_FIELDS.filter(([key]) => {
+  const out = REQUIRED_FIELDS.filter(([key]) => {
     const v = get(s, key);
     return v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length);
   }).map(([key, label]) => ({ key, label }));
+  // The email login lives in the local .env, not in settings: it is required unless the user chose to enter all
+  // passwords themselves (then replies come through their AI app's Gmail connector, if any).
+  if (!s.gmail?.manual_logins && !emailStatus().saved) out.push({ key: "email.login", label: "Email login (or \"I'll enter all passwords myself\")" });
+  return out;
 }
+
+/** Recomputes setup_complete after something outside settings.json changed what is missing (the email login). */
+export const refreshSetup = () => writeSettings(loadSettings());
 
 /** Settings without the installation secrets, for display. */
 export function publicSettings(s) {
@@ -415,11 +427,13 @@ export function getJob(jobId) {
   return one("SELECT j.*, a.method, a.submitted_at FROM jobs j LEFT JOIN applications a ON a.job_id=j.id WHERE j.id=?", jobId);
 }
 
-export function setStatus(jobId, status, { note, method, confirmation, resumePath, coverPath, coverText } = {}) {
+export function setStatus(jobId, status, { note, method, confirmation, resumePath, coverPath, coverText, dropCover } = {}) {
   if (!STATUSES[status]) throw new Error(`status must be one of ${Object.keys(STATUSES).sort().join(", ")}`);
   if (!one("SELECT 1 AS x FROM jobs WHERE id=?", jobId)) throw new Error(`no job ${jobId}`);
   run("UPDATE jobs SET status=?, status_note=coalesce(?,status_note), updated_at=? WHERE id=?", status, note, now(), jobId);
   run("INSERT INTO applications (job_id) VALUES (?) ON CONFLICT(job_id) DO NOTHING", jobId);
+  // A saved letter that never went out leaves the record; its PDF stays in the documents folder.
+  if (dropCover) run("UPDATE applications SET cover_path=NULL, cover_text=NULL WHERE job_id=?", jobId);
   if (resumePath || coverPath || coverText) {
     run("UPDATE applications SET resume_path=coalesce(?,resume_path), cover_path=coalesce(?,cover_path), " +
       "cover_text=coalesce(?,cover_text) WHERE job_id=?", resumePath, coverPath, coverText, jobId);
@@ -435,6 +449,12 @@ export function setStatus(jobId, status, { note, method, confirmation, resumePat
 export function setCoverLetter(jobId, file, text) {
   run("INSERT INTO applications (job_id, cover_path, cover_text) VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET " +
     "cover_path=excluded.cover_path, cover_text=excluded.cover_text", jobId, file, text);
+}
+
+/** The letter kept with a job ({path, text}), or null: what to attach, or paste into a text-box letter field. */
+export function coverLetter(jobId) {
+  const r = one("SELECT cover_path, cover_text FROM applications WHERE job_id=?", jobId);
+  return r && (r.cover_path || r.cover_text) ? { path: r.cover_path, text: r.cover_text } : null;
 }
 
 /** Saves one reusable answer under the question's label, or removes it when the answer is empty. Saved answers fill
@@ -481,17 +501,19 @@ export function recordReply(r) {
   const kind = r.kind || "replied";
   if (!OUTCOMES[kind]) throw new Error(`kind must be one of ${Object.keys(OUTCOMES).sort().join(", ")}`);
   if (r.job_id && !one("SELECT id FROM jobs WHERE id=?", r.job_id)) throw new Error(`no job ${r.job_id}; find its id with freeapply_list_jobs`);
-  run("INSERT OR IGNORE INTO replies (job_id, company, gmail_message_id, gmail_thread_id, sender, subject, " +
+  const received = localTime(r.received_at);
+  const added = Number(run("INSERT OR IGNORE INTO replies (job_id, company, gmail_message_id, gmail_thread_id, sender, subject, " +
     "received_at, kind, summary, mail_action, recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-    r.job_id, r.company, r.gmail_message_id, r.gmail_thread_id, r.sender, r.subject, r.received_at, kind, r.summary, r.mail_action, now());
+    r.job_id, r.company, r.gmail_message_id, r.gmail_thread_id, r.sender, r.subject, received, kind, r.summary, r.mail_action, now()).changes) > 0;
   if (r.job_id) {
+    // An email recorded before changes nothing: its outcome already counted when it was first recorded.
     const cur = one("SELECT outcome FROM jobs WHERE id=?", r.job_id);
-    if (cur && (OUTCOME_RANK[kind] ?? 0) >= (OUTCOME_RANK[cur.outcome || ""] ?? -1)) {
-      run("UPDATE jobs SET outcome=?, outcome_at=?, updated_at=? WHERE id=?", kind, r.received_at || now(), now(), r.job_id);
+    if (added && cur && (OUTCOME_RANK[kind] ?? 0) >= (OUTCOME_RANK[cur.outcome || ""] ?? -1)) {
+      run("UPDATE jobs SET outcome=?, outcome_at=?, updated_at=? WHERE id=?", kind, received || now(), now(), r.job_id);
     }
-    return { recorded: true, kind, job_id: r.job_id, outcome: one("SELECT outcome FROM jobs WHERE id=?", r.job_id).outcome };
+    return { recorded: added, kind, job_id: r.job_id, outcome: one("SELECT outcome FROM jobs WHERE id=?", r.job_id).outcome };
   }
-  return { recorded: true, kind, job_id: null, outcome: null };
+  return { recorded: added, kind, job_id: null, outcome: null };
 }
 
 /** What the Gmail reply check needs: applied companies, the time window and the mail action. */
@@ -849,7 +871,7 @@ export function answerQuestions(answers) {
 
 export function jobAnswers(jobId) {
   return { job_id: jobId, answers: all("SELECT label, answer FROM job_questions WHERE job_id=? AND answer IS NOT NULL", jobId),
-    saved_answers: loadSettings().custom_answers || {} };
+    saved_answers: loadSettings().custom_answers || {}, cover_letter: coverLetter(jobId) };
 }
 
 /** The user created an account on the employer site themselves: remember the site and email, and re-queue the job

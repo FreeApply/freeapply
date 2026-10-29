@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "freeapply",
   "display_name": "FreeApply",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Job-search agent for any role or field: tracks every application, checks Gmail for replies, and shows it all in a local dashboard.",
   "long_description": "FreeApply gives Claude the tools to find jobs that match your settings, apply on employer sites, and log every job and application on your computer. Its workflow is signed: any change to it locks the tools until the official version is restored. Your data stays on your computer except what you choose to share in Settings.",
   "author": {

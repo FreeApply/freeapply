@@ -5,6 +5,7 @@ Disclosures and Recruiter Terms) share one version number, so each file covers b
 
 | Version | Released | Summary |
 |---|---|---|
+| [1.0.4](1.0.4.md) | 2026-10-28 | FreeApply now reads employer replies itself, with a Gmail app password that stays on your computer and that your AI assistant never sees. |
 | [1.0.3](1.0.3.md) | 2026-10-28 | A small maintenance release: FreeApply now has the same version number everywhere it's listed, and its release notes on GitHub are easier to read. |
 | [1.0.2](1.0.2.md) | 2026-10-28 | Cover letters your way, written with the skills each job asks for that you really have, and attached as PDFs. |
 | [1.0.1](1.0.1.md) | 2026-10-27 | Clearer tools for your AI app (22 instead of 25), a Needs you tab that asks each question once in plain words, and problem reports you can send, each only with your OK. |
